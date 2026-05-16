@@ -108,8 +108,20 @@ jobs:
             sleep 1
           done
 
+          # /health is intentionally unauthenticated (liveness probe).
           curl -sf http://127.0.0.1:8080/health | tee health.json
-          curl -sf http://127.0.0.1:8080/tabs | tee tabs.json
+
+          # All other routes now require Authorization: Bearer <token>.
+          # Token is auto-generated to ~/.kuri/api.token on first launch.
+          # Also assert that /tabs WITHOUT auth is rejected with 401, so a
+          # regression that re-opens the credential dump fails this job.
+          token=$(./zig-out/bin/kuri token)
+          unauth_status=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8080/tabs)
+          if [ "${unauth_status}" != "401" ]; then
+            echo "expected /tabs without auth to return 401, got ${unauth_status}" >&2
+            exit 1
+          fi
+          curl -sf -H "Authorization: Bearer ${token}" http://127.0.0.1:8080/tabs | tee tabs.json
 
           grep '"ok":true' health.json
           grep '"tabs":1' health.json
