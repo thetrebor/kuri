@@ -3,16 +3,31 @@ const Config = @import("../bridge/config.zig").Config;
 const compat = @import("../compat.zig");
 
 /// Check auth header against configured secret.
-/// Returns true if no secret is configured or if the header matches.
+///
+/// - When `cfg.auth_secret` is null we passthrough (used by tests and the
+///   legacy "no auth" mode that callers explicitly opted into by leaving
+///   the env unset and never invoking `api_token.ensure`).
+/// - Liveness probes hitting `/health` (with or without a query string) are
+///   exempt so Docker/k8s `httpGet` and `curl /health` keep working without
+///   leaking anything secret.
+/// - The Authorization header is matched both against `Bearer <secret>` and
+///   the raw secret value (legacy clients of `KURI_SECRET` predate Bearer).
 pub fn checkAuth(request: *std.http.Server.Request, cfg: Config) bool {
     const secret = cfg.auth_secret orelse return true;
 
-    // Iterate headers to find Authorization
+    const target = request.head.target;
+    const path = if (std.mem.indexOfScalar(u8, target, '?')) |idx| target[0..idx] else target;
+    if (std.mem.eql(u8, path, "/health")) return true;
+
     var it = request.iterateHeaders();
     while (it.next()) |header| {
-        if (std.ascii.eqlIgnoreCase(header.name, "authorization")) {
-            return constantTimeEql(header.value, secret);
+        if (!std.ascii.eqlIgnoreCase(header.name, "authorization")) continue;
+        const value = std.mem.trim(u8, header.value, " \t");
+        if (value.len >= 7 and std.ascii.eqlIgnoreCase(value[0..7], "Bearer ")) {
+            const tok = std.mem.trim(u8, value[7..], " \t");
+            return constantTimeEql(tok, secret);
         }
+        return constantTimeEql(value, secret);
     }
     return false;
 }

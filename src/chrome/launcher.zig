@@ -2,6 +2,10 @@ const std = @import("std");
 const config = @import("../bridge/config.zig");
 const compat = @import("../compat.zig");
 
+// std.c.kill takes the typed `SIG` enum which has no `0` member, so for the
+// "is the PID alive?" probe we drop down to the libc signature directly.
+extern "c" fn kill(pid: std.c.pid_t, sig: c_int) c_int;
+
 /// 🧁 Chrome lifecycle manager — launch, supervise, restart.
 /// Handles spawning headless Chrome with CDP debugging port,
 /// health-checking via /json/version, and auto-restart on crash.
@@ -114,15 +118,33 @@ pub const Launcher = struct {
         defer argv_list.deinit(self.allocator);
 
         try argv_list.append(self.allocator, chrome_bin);
+        // Always pin kuri-managed Chrome to its own profile directory so we
+        // never collide with the user's normal Chrome on the default profile
+        // path (~/Library/Application Support/Google/Chrome on macOS). Without
+        // an explicit --user-data-dir, --headless=new still races for the
+        // default SingletonLock and can evict the user's running windows; on
+        // shutdown our SIGKILL on the child PID can then cascade through
+        // shared helper processes.
+        const home = compat.getenv("HOME") orelse "/tmp";
+        const profile_subdir: []const u8 = if (self.headless) ".kuri/chrome-profile-headless" else ".kuri/chrome-profile";
+        const profile_dir = try std.fmt.allocPrint(self.allocator, "{s}/{s}", .{ home, profile_subdir });
+        defer self.allocator.free(profile_dir);
+
+        // Self-heal stale SingletonLock symlinks left behind by a previous
+        // kuri that was killed by SIGTERM/SIGKILL before its `defer
+        // chrome.deinit()` could run. Without this, the next launch waits
+        // 15 s in waitForDebuggerUrl and then errors out with
+        // ConnectionRefused even though there's no real conflict.
+        cleanStaleSingletonLocks(profile_dir);
+
+        const data_dir = try std.fmt.allocPrint(self.allocator, "--user-data-dir={s}", .{profile_dir});
+        try argv_list.append(self.allocator, data_dir);
         if (self.headless) {
             try argv_list.append(self.allocator, "--headless=new");
             try argv_list.append(self.allocator, "--disable-gpu");
-        } else {
-            // Visible mode: needs a data dir for CDP to work on macOS
-            const home = compat.getenv("HOME") orelse "/tmp";
-            const data_dir = try std.fmt.allocPrint(self.allocator, "--user-data-dir={s}/.kuri/chrome-profile", .{home});
-            try argv_list.append(self.allocator, data_dir);
         }
+        try argv_list.append(self.allocator, "--no-first-run");
+        try argv_list.append(self.allocator, "--no-default-browser-check");
         // Only use --no-sandbox on Linux (needed for containers), it's a detection signal on macOS
         if (@import("builtin").os.tag == .linux) {
             try argv_list.append(self.allocator, "--no-sandbox");
@@ -189,14 +211,7 @@ pub const Launcher = struct {
 
         // Free argv-owned strings now that fork+exec has completed.
         self.allocator.free(port_flag);
-        if (!self.headless) {
-            for (argv_list.items) |item| {
-                if (std.mem.startsWith(u8, item, "--user-data-dir=")) {
-                    self.allocator.free(item);
-                    break;
-                }
-            }
-        }
+        self.allocator.free(data_dir);
         if (ext_flags) |flags| {
             for (flags) |f| self.allocator.free(f);
             self.allocator.free(flags);
@@ -319,6 +334,78 @@ pub const Launcher = struct {
         self.ws_url_len = ws_url.len;
     }
 };
+
+// ── Stale lock recovery ────────────────────────────────────────────────
+
+/// Best-effort cleanup of Chromium's SingletonLock/SingletonCookie/SingletonSocket
+/// symlinks when they point at a PID that's no longer running.
+///
+/// Chromium writes `SingletonLock -> <hostname>-<pid>` to its --user-data-dir
+/// on startup and unlinks it on clean shutdown. If kuri's parent process gets
+/// killed by SIGKILL or panics, `defer chrome.deinit()` never runs, the child
+/// Chrome stays alive (or dies without cleanup), and the next launch sees a
+/// stale symlink. Headless Chrome doesn't prompt — it just fails to bind the
+/// CDP port and kuri loops in waitForDebuggerUrl for 15s before erroring out.
+///
+/// We resolve the symlink, parse the trailing `-<pid>`, and `kill(pid, 0)` to
+/// probe for life. ESRCH means dead → unlink. Anything we can't parse, we
+/// leave alone so we never delete a lock owned by a live process.
+fn cleanStaleSingletonLocks(profile_dir: []const u8) void {
+    cleanOneStaleLock(profile_dir, "SingletonLock");
+    cleanOneStaleLock(profile_dir, "SingletonCookie");
+    cleanOneStaleLock(profile_dir, "SingletonSocket");
+}
+
+fn cleanOneStaleLock(profile_dir: []const u8, name: []const u8) void {
+    var path_buf: [4096]u8 = undefined;
+    if (profile_dir.len + 1 + name.len + 1 > path_buf.len) return;
+    const n_dir = profile_dir.len;
+    @memcpy(path_buf[0..n_dir], profile_dir);
+    path_buf[n_dir] = '/';
+    @memcpy(path_buf[n_dir + 1 ..][0..name.len], name);
+    const total = n_dir + 1 + name.len;
+    path_buf[total] = 0;
+    const path_z: [*:0]const u8 = path_buf[0..total :0];
+
+    var target_buf: [256]u8 = undefined;
+    const n = std.c.readlink(path_z, &target_buf, target_buf.len);
+    if (n <= 0) return; // not a symlink or unreadable — leave it.
+    const target = target_buf[0..@intCast(n)];
+
+    // Only the SingletonLock embeds a PID we can probe. Cookie + Socket get
+    // unlinked alongside it when the lock is confirmed stale, so for those
+    // two names we just check whether SingletonLock itself was cleared.
+    if (std.mem.eql(u8, name, "SingletonLock")) {
+        const dash = std.mem.lastIndexOfScalar(u8, target, '-') orelse return;
+        if (dash + 1 >= target.len) return;
+        const pid_str = target[dash + 1 ..];
+        const pid = std.fmt.parseInt(std.c.pid_t, pid_str, 10) catch return;
+        // kill(pid, 0): 0 → alive, -1+ESRCH → dead, -1+EPERM → alive but other-user.
+        if (kill(pid, 0) == 0) return; // still alive, do nothing.
+        // Best-effort errno check; we'd rather not parse errno across libcs.
+        // If kill failed and ESRCH is the most common reason, unlink. If it
+        // was a permission error the pid is alive anyway and Chrome will
+        // surface the right error on launch.
+        _ = std.c.unlink(path_z);
+        std.log.info("removed stale SingletonLock at {s} (owner pid {d} not running)", .{ path_buf[0..total], pid });
+    } else {
+        // For Cookie/Socket: if the matching SingletonLock no longer exists
+        // (i.e. we just unlinked it above, or it was already gone), drop these.
+        var lock_buf: [4096]u8 = undefined;
+        const lock_name = "SingletonLock";
+        if (n_dir + 1 + lock_name.len + 1 > lock_buf.len) return;
+        @memcpy(lock_buf[0..n_dir], profile_dir);
+        lock_buf[n_dir] = '/';
+        @memcpy(lock_buf[n_dir + 1 ..][0..lock_name.len], lock_name);
+        const lock_total = n_dir + 1 + lock_name.len;
+        lock_buf[lock_total] = 0;
+        const lock_z: [*:0]const u8 = lock_buf[0..lock_total :0];
+        // If readlink on SingletonLock fails, the lock is gone — siblings are stale.
+        if (std.c.readlink(lock_z, &target_buf, target_buf.len) <= 0) {
+            _ = std.c.unlink(path_z);
+        }
+    }
+}
 
 // ── Extension utilities ─────────────────────────────────────────────────
 
