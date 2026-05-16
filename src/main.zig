@@ -4,6 +4,8 @@ const config = @import("bridge/config.zig");
 const server = @import("server/router.zig");
 const Bridge = @import("bridge/bridge.zig").Bridge;
 const launcher = @import("chrome/launcher.zig");
+const api_token = @import("server/api_token.zig");
+const lifecycle = @import("lifecycle.zig");
 
 const version = "0.3.3";
 
@@ -12,6 +14,7 @@ const CliAction = enum {
     help,
     version,
     mobile,
+    token,
 };
 
 pub fn main(init: std.process.Init.Minimal) !void {
@@ -44,11 +47,33 @@ pub fn main(init: std.process.Init.Minimal) !void {
             try execMobile(arena_impl.allocator(), args);
             return;
         },
+        .token => {
+            // Print (or generate then print) the API token used to authenticate
+            // against the kuri HTTP API. Useful for shell aliases:
+            //   curl -H "Authorization: Bearer $(kuri token)" http://127.0.0.1:8080/tabs
+            var resolved = try api_token.ensure(gpa);
+            defer resolved.deinit(gpa);
+            compat.writeToStdout(resolved.token);
+            compat.writeToStdout("\n");
+            return;
+        },
         .run => {},
     }
 
     const cfg = config.load();
     var runtime_cfg = cfg;
+
+    // Phase 0a: never let the HTTP server run without an auth token. If the
+    // user didn't set KURI_API_TOKEN/KURI_SECRET, generate one and persist to
+    // ~/.kuri/api.token (0600). The token must outlive `runtime_cfg`, so we
+    // leak it deliberately into a static-lifetime slice held by the gpa.
+    const resolved_token = try api_token.ensure(gpa);
+    runtime_cfg.auth_secret = resolved_token.token;
+    switch (resolved_token.source) {
+        .env => std.log.info("api auth: using token from environment", .{}),
+        .file_loaded => std.log.info("api auth: loaded token from {s}", .{resolved_token.path.?}),
+        .file_generated => std.log.info("api auth: generated fresh token at {s} (run `kuri token` to print)", .{resolved_token.path.?}),
+    }
 
     std.log.info("kuri v{s}", .{version});
     std.log.info("listening on {s}:{d}", .{ cfg.host, cfg.port });
@@ -56,6 +81,11 @@ pub fn main(init: std.process.Init.Minimal) !void {
     // Chrome lifecycle management
     var chrome = launcher.Launcher.init(gpa, cfg);
     defer chrome.deinit();
+
+    // Hook SIGINT/SIGTERM/SIGHUP so the deferred deinit actually runs when
+    // we're killed by a supervisor or Ctrl+C — otherwise the child Chrome
+    // orphans and leaves a stale SingletonLock for the next run.
+    lifecycle.install(&chrome);
 
     if (cfg.cdp_url) |url| {
         std.log.info("connecting to existing Chrome at {s}", .{url});
@@ -78,6 +108,11 @@ pub fn main(init: std.process.Init.Minimal) !void {
     const startup_discovered = try server.discoverTabs(startup_arena_impl.allocator(), &bridge, runtime_cfg, start_result.cdp_port);
     std.log.info("startup discovery registered {d} tabs", .{startup_discovered});
 
+    // Print the Jupyter-style banner *just* before the server loop blocks.
+    // Token visibility is redacted when stderr isn't a TTY (see api_token.zig).
+    var banner_buf: [2048]u8 = undefined;
+    api_token.printStartupBanner(banner_buf[0..], version, cfg.host, cfg.port, resolved_token);
+
     // Start HTTP server
     try server.run(gpa, &bridge, runtime_cfg, start_result.cdp_port);
 }
@@ -94,6 +129,10 @@ fn parseCliAction(args: []const []const u8) !CliAction {
 
     if (std.mem.eql(u8, args[1], "android") or std.mem.eql(u8, args[1], "ios")) {
         return .mobile;
+    }
+
+    if (std.mem.eql(u8, args[1], "token")) {
+        return .token;
     }
 
     return error.UnknownArgument;
@@ -149,6 +188,7 @@ fn printUsage() void {
         \\    kuri                     Start the HTTP/CDP server
         \\    kuri android <cmd>       Drive Android devices (delegates to kuri-mobile)
         \\    kuri ios <cmd>           Drive iOS sims/devices (delegates to kuri-mobile)
+        \\    kuri token               Print the API token (creates one if missing)
         \\    kuri -h, --help          Show this help
         \\    kuri -V, --version       Print version and exit
         \\
@@ -158,7 +198,8 @@ fn printUsage() void {
         \\    HEADLESS                 Launch managed Chrome headless=true by default
         \\    CDP_URL                  Attach to existing Chrome instead of launching one
         \\    STATE_DIR                State directory (default: .kuri)
-        \\    KURI_SECRET              Optional auth secret (alias: BROWDIE_SECRET)
+        \\    KURI_API_TOKEN           Bearer token for the HTTP API (auto-generated if unset)
+        \\    KURI_SECRET              Legacy alias of KURI_API_TOKEN (also: BROWDIE_SECRET)
         \\    KURI_EXTENSIONS          Comma-separated Chrome extensions
         \\    KURI_PROXY               Proxy URL for managed Chrome
         \\    STALE_TAB_INTERVAL_S     Tab staleness interval (default: 30)
@@ -184,6 +225,10 @@ test "parseCliAction handles help and version" {
     try std.testing.expectEqual(CliAction.version, try parseCliAction(&.{ "kuri", "-V" }));
 }
 
+test "parseCliAction recognises token subcommand" {
+    try std.testing.expectEqual(CliAction.token, try parseCliAction(&.{ "kuri", "token" }));
+}
+
 test "parseCliAction rejects unknown argument" {
     try std.testing.expectError(error.UnknownArgument, parseCliAction(&.{ "kuri", "--wat" }));
 }
@@ -194,6 +239,8 @@ test {
     _ = @import("server/router.zig");
     _ = @import("server/response.zig");
     _ = @import("server/middleware.zig");
+    _ = @import("server/api_token.zig");
+    _ = @import("lifecycle.zig");
     _ = @import("cdp/protocol.zig");
     _ = @import("cdp/client.zig");
     _ = @import("cdp/websocket.zig");
