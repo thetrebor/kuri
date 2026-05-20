@@ -1,5 +1,5 @@
 .{
-    .name = .agentic_browdie,
+    .name = .kuri,
     .version = "0.3.1",
     .dependencies = .{
         .quickjs = .{
@@ -7,7 +7,7 @@
             .hash = "quickjs_ng-0.0.0-0cZnA8XHAwCc95T1GAebWrw-SGEwp1Y0fUAmilP8xGuS",
         },
     },
-    .fingerprint = 0xec2893e4290b56b9,
+    .fingerprint = 0xb63ec72d77641494,
     .minimum_zig_version = "0.16.0",
     .paths = .{
         "build.zig",
