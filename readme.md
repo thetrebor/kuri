@@ -5,7 +5,7 @@
 <h1 align="center">Kuri 🌰</h1>
 
 <p align="center">
-  <a href="https://raw.githubusercontent.com/justrach/kuri/release-channel/stable/latest.json"><img src="https://img.shields.io/badge/stable-v0.3.3-brightgreen?style=flat-square" alt="Stable release"></a>
+  <a href="https://raw.githubusercontent.com/justrach/kuri/release-channel/stable/latest.json"><img src="https://img.shields.io/badge/stable-v0.4.0-brightgreen?style=flat-square" alt="Stable release"></a>
   <a href="https://github.com/justrach/kuri/blob/main/LICENSE"><img src="https://img.shields.io/github/license/justrach/kuri?style=flat-square" alt="License"></a>
   <img src="https://img.shields.io/badge/zig-0.16.0-f7a41d?style=flat-square" alt="Zig">
   <img src="https://img.shields.io/badge/node__modules-0_files-brightgreen?style=flat-square" alt="node_modules">
@@ -57,22 +57,20 @@ Measured on Apple M4 Pro, macOS 26.4.1. Current binaries were built with `-Dopti
 
 | Binary | Current size |
 |---|---:|
-| `kuri` | 886,920 B (866 KiB) |
-| `kuri-agent` | 594,984 B (581 KiB) |
-| `kuri-browse` | 1,053,176 B (1.00 MiB) |
-| `kuri-fetch` | 1,994,776 B (1.90 MiB) |
+| `kuri` | 1,093,840 B (1.04 MiB) |
+| `kuri-agent` | 629,904 B (615 KiB) |
+| `kuri-browse` | 1,089,120 B (1.04 MiB) |
+| `kuri-fetch` | 2,063,488 B (1.97 MiB) |
 
 ### RSS stayed flat across the Zig 0.16 migration
 
-Compared the shipped pre-0.16 macOS release artifact `v0.2.0-rc1` against the current `0.3.2` `ReleaseFast` build over 7 runs with `/usr/bin/time -l`.
+Measured against the current `v0.4.0` `ReleaseFast` build with `/usr/bin/time -l`.
 
-| Command | `v0.2.0-rc1` mean max RSS | `0.3.2` mean max RSS | Delta |
-|---|---:|---:|---:|
-| `kuri-fetch --version` | ~2.45 MiB | ~2.45 MiB | ~flat |
-| `kuri-browse --version` | ~2.45 MiB | ~2.45 MiB | ~flat |
-| `kuri-fetch --quiet --dump markdown http://example.com/` | 9.12 MiB | 9.17 MiB | +48 KiB (+0.5%) |
-
-Direct source rebuild with `zig 0.15.2` is currently blocked on this macOS release, so the baseline here is the shipped pre-0.16 artifact rather than a local rebuild.
+| Command | `v0.4.0` mean max RSS |
+|---|---:|
+| `kuri-fetch --version` | ~2.45 MiB |
+| `kuri-browse --version` | ~2.45 MiB |
+| `kuri-fetch --quiet --dump markdown http://example.com/` | ~9.17 MiB |
 
 ## The Problem
 
@@ -96,7 +94,7 @@ curl -fsSL https://raw.githubusercontent.com/justrach/kuri/release-channel/stabl
 ```
 
 Detects your platform, downloads the right binary, installs to `~/.local/bin`.
-Downloads come from Kuri's self-managed `release-channel` branch, not GitHub Releases. macOS binaries are signed and notarized.
+Downloads come from Kuri's self-managed `release-channel` branch. macOS binaries are locally signed with a Developer ID certificate. GitHub Release assets mirror these same tarballs.
 
 ### bun / npm
 
@@ -446,7 +444,7 @@ KURI_PROXY=http://proxy:8080 ./zig-out/bin/kuri
 
 | Site | Protection | Result |
 |------|-----------|--------|
-| Singapore Airlines | Akamai WAF | ✅ Bypassed (was blocked before v0.4) |
+| Singapore Airlines | Akamai WAF | ✅ Bypassed (was blocked before v0.4.0) |
 | Shopee SG | Custom anti-fraud | ✅ Page loads, redirects to login |
 | Google Flights | None | ✅ Full interaction |
 | Booking.com | PerimeterX | ⚠️ Needs proxy |
