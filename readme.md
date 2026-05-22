@@ -12,18 +12,15 @@
   <img src="https://img.shields.io/badge/status-experimental-orange?style=flat-square" alt="status">
 </p>
 
-<h3 align="center">
-  <code>curl -fsSL https://raw.githubusercontent.com/justrach/kuri/main/install.sh | sh</code>
-</h3>
+## Install
 
-<p align="center"><em>macOS (arm64 / x86_64) · Linux (x86_64 / arm64) — single binary, no deps</em></p>
+```sh
+curl -fsSL https://raw.githubusercontent.com/justrach/kuri/main/install.sh | sh
+```
 
-<p align="center">
-  <a href="https://github.com/justrach/kuri/releases/download/v0.4.0/kuri-v0.4.0-aarch64-macos.tar.gz">macOS arm64</a> ·
-  <a href="https://github.com/justrach/kuri/releases/download/v0.4.0/kuri-v0.4.0-x86_64-macos.tar.gz">macOS x86_64</a> ·
-  <a href="https://github.com/justrach/kuri/releases/download/v0.4.0/kuri-v0.4.0-x86_64-linux.tar.gz">Linux x86_64</a> ·
-  <a href="https://github.com/justrach/kuri/releases/download/v0.4.0/kuri-v0.4.0-aarch64-linux.tar.gz">Linux arm64</a>
-</p>
+macOS arm64/x86_64 and Linux x86_64/arm64. Single binary, no runtime deps.
+
+Direct downloads: [macOS arm64](https://github.com/justrach/kuri/releases/download/v0.4.0/kuri-v0.4.0-aarch64-macos.tar.gz) · [macOS x86_64](https://github.com/justrach/kuri/releases/download/v0.4.0/kuri-v0.4.0-x86_64-macos.tar.gz) · [Linux x86_64](https://github.com/justrach/kuri/releases/download/v0.4.0/kuri-v0.4.0-x86_64-linux.tar.gz) · [Linux arm64](https://github.com/justrach/kuri/releases/download/v0.4.0/kuri-v0.4.0-aarch64-linux.tar.gz)
 
 ---
 
