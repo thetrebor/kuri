@@ -29,38 +29,27 @@ All notable changes to kuri are documented here.
 - **Benchmark refresh** — README benchmark section updated with a fresh `kuri` rerun from `bench/token_benchmark.sh`
 - **Version sync** — runtime strings, package metadata, and docs aligned to `0.3.1`
 
-## [0.4.0] — 2026-04-10
+## [0.4.0] — 2026-05-22
 
-### Stealth & Anti-Bot Evasion
-- **Enhanced stealth.js** — Added WebGL renderer spoofing (Intel Iris), canvas fingerprint noise, AudioContext timing noise, `hardwareConcurrency`/`deviceMemory` spoofing, `navigator.connection` broadband values, `chrome.csi`/`chrome.loadTimes` stubs for Akamai bypass
-- **Updated User Agents** — Chrome 131 → 135, Safari 18.2 → 18.4, Firefox 134 → 137
-- **Anti-detection Chrome flags** — `--disable-blink-features=AutomationControlled`, `--disable-infobars`, `--disable-background-networking`, `--disable-dev-shm-usage`, `--window-size=1920,1080`
-- **`--no-sandbox` Linux-only** — Removed on macOS where it's a bot detection signal (fixes #128)
-- **Auto-stealth on startup** — Stealth patches + UA rotation applied to all tabs via `Page.addScriptToEvaluateOnNewDocument` during discovery. No manual `stealth` command needed in server mode
-- **Proxy support** — `KURI_PROXY` env var passes `--proxy-server` to Chrome for residential proxy evasion. Supports `socks5://` and `http://` proxies
+### kuri-browser — Standalone Browser Engine
+- **Native rendering engine** — Full DOM tree, CSS cascade with layout/paint, real `<table>` layout, font shorthands (border/padding/margin/list-style), text metrics with per-character glyph widths calibrated against headless Chrome
+- **QuickJS runtime** — JavaScript evaluation, fetch/XHR bridge, cookie-aware navigation state, form extraction, session-backed form submission, HAR capture for browser flows
+- **CDP server** — Minimal CDP WebSocket router, CDP discovery server, compressed screenshot fallback, parsed DOM selectors
+- **Agent actions** — Click, type, snap, scroll, navigate, eval, back/forward via CDP-compatible commands
+- **Parity tracking** — Pixel parity benchmark harness vs Chrome, example.com parity tracking (98.45% wrapper / 86.37% direct), per-char glyph width calibration
 
-### Bot Block Detection & Fallback
-- **Automatic bot detection** — `/navigate` now detects Akamai, Cloudflare, PerimeterX, DataDome, and generic captcha blocks after navigation
-- **Structured fallback response** — When blocked, returns `{"blocked":true,"blocker":"akamai","ref_code":"...","fallback":{"suggestions":[...],"proxy_hint":"...","bypass_difficulty":"high"}}`
-- **Bypass with `&bot_detect=false`** — Disable detection for speed-sensitive operations
-- **Successfully bypassed Singapore Airlines** — Akamai WAF now passable with stealth patches + anti-detection flags (previously returned "SIA-Maintenance Page")
+### kuri-mobile — iOS + Android Device Control
+- **Zig-native device automation** — Driverless: no on-device app, no Bun, no Gradle, no Xcode-time builds
+- **Android** — ADB host protocol, XML UI tree parser, device listing, tap/swipe/type via input commands
+- **iOS** — Simulator control via `xcrun simctl`, real device listing via usbmuxd, CGEvent-based tap/swipe/pan/type into Simulator.app
 
-### HAR Replay & API Map
-- **`/har/replay` endpoint** — Transforms captured HAR entries into model-friendly code snippets (curl, fetch, Python requests)
-- **Request headers capture** — HAR now records full request headers from CDP `Network.requestWillBeSent` events
-- **POST body capture** — HAR now records `postData` from request events
-- **Filters** — `?filter=api` (JSON/XHR only), `?filter=doc` (HTML/JSON), `?filter=all`
-- **Format** — `?format=curl`, `?format=fetch`, `?format=python`, `?format=all`
+### Server
+- **Bearer-token API auth** — All endpoints protected by configurable bearer token, new `kuri token` CLI command for token management
+- **Signal-safe Chrome lifecycle** — Chrome process shutdown uses signal-safe paths, preventing orphan processes
 
-### Security Fixes
-- **SSRF protection (#81)** — `/navigate` now validates URLs against private IPs, localhost, cloud metadata (169.254.x.x), and non-HTTP schemes via `validator.zig`
-- **JSON injection fix (#82)** — All user-supplied values (URL, selector, key, value, name, domain, file_path) escaped via `jsonEscapeAlloc` before JSON/JS interpolation
-
-### CDP Client Stability
-- **Event buffer use-after-free fix (#83)** — `EventBuffer.push` now dupes data into persistent allocator, preventing segfaults when arena allocators are destroyed
-- **Increased event headroom** — CDP `send()` now reads up to 500 events (was 100), handling heavy SPAs like Shopee/SIA
-- **Auto-reconnect** — CDP client marks itself disconnected on WebSocket errors and reconnects on next `send()` call
-- **Stale WebSocket cleanup** — `connectWs()` closes old WebSocket before opening new connection
+### CI
+- **Startup smoke tests** — CI now validates the bearer-token authentication wall
+- **Mobile skills discovery** — Help/version regression guard for kuri-mobile CLI
 
 ## [0.3.0] — 2026-03-20
 
