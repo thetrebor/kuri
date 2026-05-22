@@ -12,6 +12,21 @@
   <img src="https://img.shields.io/badge/status-experimental-orange?style=flat-square" alt="status">
 </p>
 
+<h3 align="center">
+  <code>curl -fsSL https://raw.githubusercontent.com/justrach/kuri/main/install.sh | sh</code>
+</h3>
+
+<p align="center"><em>macOS (arm64 / x86_64) · Linux (x86_64 / arm64) — single binary, no deps</em></p>
+
+<p align="center">
+  <a href="https://github.com/justrach/kuri/releases/download/v0.4.0/kuri-v0.4.0-aarch64-macos.tar.gz">macOS arm64</a> ·
+  <a href="https://github.com/justrach/kuri/releases/download/v0.4.0/kuri-v0.4.0-x86_64-macos.tar.gz">macOS x86_64</a> ·
+  <a href="https://github.com/justrach/kuri/releases/download/v0.4.0/kuri-v0.4.0-x86_64-linux.tar.gz">Linux x86_64</a> ·
+  <a href="https://github.com/justrach/kuri/releases/download/v0.4.0/kuri-v0.4.0-aarch64-linux.tar.gz">Linux arm64</a>
+</p>
+
+---
+
 **Browser automation & web crawling for AI agents. Written in Zig. Zero Node.js.**
 
 CDP automation · A11y snapshots · HAR recording · Standalone fetcher · Interactive terminal browser · Agentic CLI · Security testing · iOS + Android device control
