@@ -2,6 +2,35 @@
 
 All notable changes to kuri are documented here.
 
+## [0.4.1] — 2026-05-23
+
+### Release and install fixes
+- **Installer parsing fix** — Adds `--color=never` to installer grep calls so ANSI escapes do not corrupt macOS `sed` parsing.
+- **README install polish** — Moves the copyable install command and direct download links to the top of the README for easier release consumption.
+- **Release metadata sync** — Runtime version string and npm package metadata aligned for the v0.4.1 patch release.
+
+## [0.4.0] — 2026-05-22
+
+### kuri-browser — Standalone Browser Engine
+- **Native rendering engine** — Full DOM tree, CSS cascade with layout/paint, real `<table>` layout, font shorthands (border/padding/margin/list-style), text metrics with per-character glyph widths calibrated against headless Chrome
+- **QuickJS runtime** — JavaScript evaluation, fetch/XHR bridge, cookie-aware navigation state, form extraction, session-backed form submission, HAR capture for browser flows
+- **CDP server** — Minimal CDP WebSocket router, CDP discovery server, compressed screenshot fallback, parsed DOM selectors
+- **Agent actions** — Click, type, snap, scroll, navigate, eval, back/forward via CDP-compatible commands
+- **Parity tracking** — Pixel parity benchmark harness vs Chrome, example.com parity tracking (98.45% wrapper / 86.37% direct), per-char glyph width calibration
+
+### kuri-mobile — iOS + Android Device Control
+- **Zig-native device automation** — Driverless: no on-device app, no Bun, no Gradle, no Xcode-time builds
+- **Android** — ADB host protocol, XML UI tree parser, device listing, tap/swipe/type via input commands
+- **iOS** — Simulator control via `xcrun simctl`, real device listing via usbmuxd, CGEvent-based tap/swipe/pan/type into Simulator.app
+
+### Server
+- **Bearer-token API auth** — All endpoints protected by configurable bearer token, new `kuri token` CLI command for token management
+- **Signal-safe Chrome lifecycle** — Chrome process shutdown uses signal-safe paths, preventing orphan processes
+
+### CI
+- **Startup smoke tests** — CI now validates the bearer-token authentication wall
+- **Mobile skills discovery** — Help/version regression guard for kuri-mobile CLI
+
 ## [0.3.3] — 2026-04-25
 
 ### Fixes
@@ -28,28 +57,6 @@ All notable changes to kuri are documented here.
 - **CI portability fixes** — Linux libc linking, Chrome startup, and validator compatibility regressions resolved
 - **Benchmark refresh** — README benchmark section updated with a fresh `kuri` rerun from `bench/token_benchmark.sh`
 - **Version sync** — runtime strings, package metadata, and docs aligned to `0.3.1`
-
-## [0.4.0] — 2026-05-22
-
-### kuri-browser — Standalone Browser Engine
-- **Native rendering engine** — Full DOM tree, CSS cascade with layout/paint, real `<table>` layout, font shorthands (border/padding/margin/list-style), text metrics with per-character glyph widths calibrated against headless Chrome
-- **QuickJS runtime** — JavaScript evaluation, fetch/XHR bridge, cookie-aware navigation state, form extraction, session-backed form submission, HAR capture for browser flows
-- **CDP server** — Minimal CDP WebSocket router, CDP discovery server, compressed screenshot fallback, parsed DOM selectors
-- **Agent actions** — Click, type, snap, scroll, navigate, eval, back/forward via CDP-compatible commands
-- **Parity tracking** — Pixel parity benchmark harness vs Chrome, example.com parity tracking (98.45% wrapper / 86.37% direct), per-char glyph width calibration
-
-### kuri-mobile — iOS + Android Device Control
-- **Zig-native device automation** — Driverless: no on-device app, no Bun, no Gradle, no Xcode-time builds
-- **Android** — ADB host protocol, XML UI tree parser, device listing, tap/swipe/type via input commands
-- **iOS** — Simulator control via `xcrun simctl`, real device listing via usbmuxd, CGEvent-based tap/swipe/pan/type into Simulator.app
-
-### Server
-- **Bearer-token API auth** — All endpoints protected by configurable bearer token, new `kuri token` CLI command for token management
-- **Signal-safe Chrome lifecycle** — Chrome process shutdown uses signal-safe paths, preventing orphan processes
-
-### CI
-- **Startup smoke tests** — CI now validates the bearer-token authentication wall
-- **Mobile skills discovery** — Help/version regression guard for kuri-mobile CLI
 
 ## [0.3.0] — 2026-03-20
 
