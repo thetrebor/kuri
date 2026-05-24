@@ -2,6 +2,32 @@
 
 All notable changes to kuri are documented here.
 
+## [0.4.3] — 2026-05-24
+
+### Features — full agent-browser parity (135 HTTP endpoints)
+- **Batch execution** — `POST /batch` runs multiple commands in one HTTP call, returns array of results
+- **Enhanced wait** — `/wait` now supports `text`, `url`, `state=networkidle`, `visible=true` params; new `/wait/function` and `/wait/download`
+- **Element state queries** — `/element/state?ref=e0&check=visible` for quick boolean checks without full snapshot
+- **Semantic locators** — `/find-element?text=Submit` / `?role=button` / `?label=Email` / `?placeholder=Search` / `?testid=login-btn`
+- **Page state** — `/page/state` lightweight observation (48 tokens vs 2,124 for full snap)
+- **Dialog handling** — `/dialog/auto`, `/dialog/accept`, `/dialog/dismiss`
+- **Mouse control** — `/mouse/move`, `/mouse/down`, `/mouse/up`, `/mouse/wheel`
+- **Touch events** — `/tap`, `/swipe`
+- **Clipboard** — `/clipboard/read`, `/clipboard/write`
+- **Form operations** — `/clear`, `/selectall`, `/setvalue`, `/multiselect`
+- **Element queries** — `/boundingbox`, `/getattribute`, `/inputvalue`, `/evalhandle`
+- **Emulation** — `/timezone`, `/locale`, `/permissions`
+- **React inspection** — `/react/tree`, `/react/inspect`, `/react/renders`, `/react/suspense`
+- **Recording** — `/recording/start`, `/recording/stop`
+- **Performance** — `/vitals` (LCP, CLS, FID, TTFB, FCP, domInteractive)
+- **Navigation** — `/pushstate`, `/bringtofront`, `/frame`, `/mainframe`
+- **Injection** — `/addstyle`, `/expose`, `/initscript/remove`, `/setcontent`
+- **Network** — `/request/detail`, `/response/body`, `/download`
+- **Diff** — `/diff/url` (compare two URLs side by side)
+
+### Token efficiency
+- 7-12% fewer tokens than agent-browser on real pages (`@e0` vs `[ref=e0]`)
+- `/page/state` is 44x lighter than full snapshot (48 vs 2,124 tokens on Google Flights)
 ## [0.4.2] — 2026-05-24
 
 ### Fixes
