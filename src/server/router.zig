@@ -260,6 +260,10 @@ fn route(request: *std.http.Server.Request, arena: std.mem.Allocator, bridge: *B
         handleWsStart(request, arena, bridge);
     } else if (std.mem.eql(u8, clean_path, "/ws/stop")) {
         handleWsStop(request, arena, bridge);
+    } else if (std.mem.eql(u8, clean_path, "/batch")) {
+        handleBatch(request, arena, bridge);
+    } else if (std.mem.eql(u8, clean_path, "/element/state")) {
+        handleElementState(request, arena, bridge);
     } else {
         resp.sendError(request, 404, "Not Found");
     }
@@ -4145,6 +4149,10 @@ fn handleWait(request: *std.http.Server.Request, arena: std.mem.Allocator, bridg
         return;
     };
     const selector = getDecodedQueryParamAlloc(arena, target, "selector");
+    const wait_text = getDecodedQueryParamAlloc(arena, target, "text");
+    const wait_url = getDecodedQueryParamAlloc(arena, target, "url");
+    const wait_state = getQueryParam(target, "state");
+    const visible_param = getQueryParam(target, "visible");
     const timeout_str = getQueryParam(target, "timeout") orelse "5000";
     const timeout_ms = std.fmt.parseInt(u64, timeout_str, 10) catch 5000;
     const client = bridge.getCdpClient(tab_id) orelse {
@@ -4152,12 +4160,16 @@ fn handleWait(request: *std.http.Server.Request, arena: std.mem.Allocator, bridg
         return;
     };
 
-    if (selector) |sel| {
-        // Poll for element existence
-        const max_polls = timeout_ms / 100;
+    const max_polls = timeout_ms / 100;
+
+    if (wait_text) |txt| {
+        const escaped_txt = jsonEscapeAlloc(arena, txt) orelse {
+            resp.sendError(request, 500, "Internal Server Error");
+            return;
+        };
         var polls: u64 = 0;
         while (polls < max_polls) : (polls += 1) {
-            const params = std.fmt.allocPrint(arena, "{{\"expression\":\"!!document.querySelector('{s}')\",\"returnByValue\":true}}", .{sel}) catch {
+            const params = std.fmt.allocPrint(arena, "{{\"expression\":\"(document.body && document.body.innerText.includes('{s}'))\",\"returnByValue\":true}}", .{escaped_txt}) catch {
                 resp.sendError(request, 500, "Internal Server Error");
                 return;
             };
@@ -4165,9 +4177,8 @@ fn handleWait(request: *std.http.Server.Request, arena: std.mem.Allocator, bridg
                 resp.sendError(request, 502, "CDP command failed");
                 return;
             };
-            // Check if result is true
             if (std.mem.indexOf(u8, response, "true") != null) {
-                const body = std.fmt.allocPrint(arena, "{{\"status\":\"found\",\"selector\":\"{s}\",\"polls\":{d}}}", .{ sel, polls + 1 }) catch {
+                const body = std.fmt.allocPrint(arena, "{{\"status\":\"found\",\"text\":\"{s}\",\"polls\":{d}}}", .{ escaped_txt, polls + 1 }) catch {
                     resp.sendError(request, 500, "Internal Server Error");
                     return;
                 };
@@ -4176,14 +4187,125 @@ fn handleWait(request: *std.http.Server.Request, arena: std.mem.Allocator, bridg
             }
             compat.threadSleep(100 * std.time.ns_per_ms);
         }
-        const body = std.fmt.allocPrint(arena, "{{\"status\":\"timeout\",\"selector\":\"{s}\",\"timeout_ms\":{d}}}", .{ sel, timeout_ms }) catch {
+        resp.sendJson(request, "{\"status\":\"timeout\",\"reason\":\"text_not_found\"}");
+        return;
+    }
+
+    if (wait_url) |url_pattern| {
+        const escaped_url = jsonEscapeAlloc(arena, url_pattern) orelse {
+            resp.sendError(request, 500, "Internal Server Error");
+            return;
+        };
+        var polls: u64 = 0;
+        while (polls < max_polls) : (polls += 1) {
+            const params = std.fmt.allocPrint(arena, "{{\"expression\":\"window.location.href.includes('{s}')\",\"returnByValue\":true}}", .{escaped_url}) catch {
+                resp.sendError(request, 500, "Internal Server Error");
+                return;
+            };
+            const response = client.send(arena, protocol.Methods.runtime_evaluate, params) catch {
+                resp.sendError(request, 502, "CDP command failed");
+                return;
+            };
+            if (std.mem.indexOf(u8, response, "true") != null) {
+                const href = evalValueString(arena, client, "window.location.href") orelse "unknown";
+                const body = std.fmt.allocPrint(arena, "{{\"status\":\"matched\",\"url\":\"{s}\",\"polls\":{d}}}", .{ href, polls + 1 }) catch {
+                    resp.sendError(request, 500, "Internal Server Error");
+                    return;
+                };
+                resp.sendJson(request, body);
+                return;
+            }
+            compat.threadSleep(100 * std.time.ns_per_ms);
+        }
+        resp.sendJson(request, "{\"status\":\"timeout\",\"reason\":\"url_not_matched\"}");
+        return;
+    }
+
+    if (wait_state) |state| {
+        if (std.mem.eql(u8, state, "networkidle")) {
+            const net_js = "(() => { let c = 0; const o = new PerformanceObserver(l => { for (const e of l.getEntries()) { if (e.initiatorType === 'xmlhttprequest' || e.initiatorType === 'fetch') c++; } }); try { o.observe({type:'resource',buffered:false}); } catch(e) {} return 'observing'; })()";
+            const idle_js = "(() => { try { const e = performance.getEntriesByType('resource'); const now = performance.now(); const pending = e.filter(r => r.responseEnd === 0 || (now - r.startTime < 500 && r.duration === 0)); return pending.length === 0 ? 'idle' : 'busy'; } catch(e) { return 'idle'; } })()";
+            _ = evalValueString(arena, client, net_js);
+            var polls: u64 = 0;
+            var idle_count: u32 = 0;
+            while (polls < max_polls) : (polls += 1) {
+                const result = evalValueString(arena, client, idle_js) orelse "idle";
+                if (std.mem.eql(u8, result, "idle")) {
+                    idle_count += 1;
+                    if (idle_count >= 5) {
+                        const body = std.fmt.allocPrint(arena, "{{\"status\":\"networkidle\",\"polls\":{d}}}", .{polls + 1}) catch {
+                            resp.sendError(request, 500, "Internal Server Error");
+                            return;
+                        };
+                        resp.sendJson(request, body);
+                        return;
+                    }
+                } else {
+                    idle_count = 0;
+                }
+                compat.threadSleep(100 * std.time.ns_per_ms);
+            }
+            resp.sendJson(request, "{\"status\":\"timeout\",\"reason\":\"network_not_idle\"}");
+            return;
+        }
+        const target_state: []const u8 = if (std.mem.eql(u8, state, "domcontentloaded")) "interactive" else "complete";
+        var polls: u64 = 0;
+        while (polls < max_polls) : (polls += 1) {
+            const params = "{\"expression\":\"document.readyState\",\"returnByValue\":true}";
+            const response = client.send(arena, protocol.Methods.runtime_evaluate, params) catch {
+                resp.sendError(request, 502, "CDP command failed");
+                return;
+            };
+            if (std.mem.indexOf(u8, response, target_state) != null) {
+                const body = std.fmt.allocPrint(arena, "{{\"status\":\"ready\",\"state\":\"{s}\",\"polls\":{d}}}", .{ state, polls + 1 }) catch {
+                    resp.sendError(request, 500, "Internal Server Error");
+                    return;
+                };
+                resp.sendJson(request, body);
+                return;
+            }
+            compat.threadSleep(100 * std.time.ns_per_ms);
+        }
+        resp.sendJson(request, "{\"status\":\"timeout\",\"reason\":\"state_not_reached\"}");
+        return;
+    }
+
+    if (selector) |sel| {
+        const check_visible = if (visible_param) |v| std.mem.eql(u8, v, "true") else false;
+        const escaped_sel = jsonEscapeAlloc(arena, sel) orelse {
+            resp.sendError(request, 500, "Internal Server Error");
+            return;
+        };
+        var polls: u64 = 0;
+        while (polls < max_polls) : (polls += 1) {
+            const expr = if (check_visible)
+                std.fmt.allocPrint(arena, "{{\"expression\":\"(() => {{ const el = document.querySelector('{s}'); if (!el) return false; const s = getComputedStyle(el); if (s.display === 'none' || s.visibility === 'hidden' || s.opacity === '0') return false; const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0; }})()\",\"returnByValue\":true}}", .{escaped_sel})
+            else
+                std.fmt.allocPrint(arena, "{{\"expression\":\"!!document.querySelector('{s}')\",\"returnByValue\":true}}", .{escaped_sel});
+            const params = expr catch {
+                resp.sendError(request, 500, "Internal Server Error");
+                return;
+            };
+            const response = client.send(arena, protocol.Methods.runtime_evaluate, params) catch {
+                resp.sendError(request, 502, "CDP command failed");
+                return;
+            };
+            if (std.mem.indexOf(u8, response, "true") != null) {
+                const body = std.fmt.allocPrint(arena, "{{\"status\":\"found\",\"selector\":\"{s}\",\"polls\":{d}}}", .{ escaped_sel, polls + 1 }) catch {
+                    resp.sendError(request, 500, "Internal Server Error");
+                    return;
+                };
+                resp.sendJson(request, body);
+                return;
+            }
+            compat.threadSleep(100 * std.time.ns_per_ms);
+        }
+        const body = std.fmt.allocPrint(arena, "{{\"status\":\"timeout\",\"selector\":\"{s}\",\"timeout_ms\":{d}}}", .{ escaped_sel, timeout_ms }) catch {
             resp.sendError(request, 500, "Internal Server Error");
             return;
         };
         resp.sendError(request, 408, body);
     } else {
-        // Wait for page load (check document.readyState)
-        const max_polls = timeout_ms / 100;
         var polls: u64 = 0;
         while (polls < max_polls) : (polls += 1) {
             const params = "{\"expression\":\"document.readyState\",\"returnByValue\":true}";
@@ -5242,6 +5364,347 @@ fn handleWsStop(request: *std.http.Server.Request, arena: std.mem.Allocator, bri
     resp.sendJson(request, response);
 }
 
+fn handleElementState(request: *std.http.Server.Request, arena: std.mem.Allocator, bridge: *Bridge) void {
+    const target = request.head.target;
+    const tab_id = requireEffectiveTabId(arena, request, bridge) orelse return;
+    const ref = getQueryParam(target, "ref") orelse {
+        resp.sendError(request, 400, "Missing ref parameter");
+        return;
+    };
+    const check = getQueryParam(target, "check") orelse "exists";
+    const client = bridge.getCdpClient(tab_id) orelse {
+        resp.sendError(request, 404, "Tab not found");
+        return;
+    };
+
+    bridge.mu.lockShared();
+    const cache = bridge.snapshots.get(tab_id);
+    bridge.mu.unlockShared();
+
+    const bid = if (cache) |c| c.refs.get(ref) else null;
+    if (bid == null) {
+        if (std.mem.eql(u8, check, "exists")) {
+            const body = std.fmt.allocPrint(arena, "{{\"ref\":\"{s}\",\"exists\":false}}", .{ref}) catch {
+                resp.sendError(request, 500, "Internal Server Error");
+                return;
+            };
+            resp.sendJson(request, body);
+        } else {
+            resp.sendError(request, 400, "Ref not found. Call /snapshot first");
+        }
+        return;
+    }
+
+    if (std.mem.eql(u8, check, "exists")) {
+        const body = std.fmt.allocPrint(arena, "{{\"ref\":\"{s}\",\"exists\":true}}", .{ref}) catch {
+            resp.sendError(request, 500, "Internal Server Error");
+            return;
+        };
+        resp.sendJson(request, body);
+        return;
+    }
+
+    const resolve_params = std.fmt.allocPrint(arena, "{{\"backendNodeId\":{d}}}", .{bid.?}) catch {
+        resp.sendError(request, 500, "Internal Server Error");
+        return;
+    };
+    const resolve_response = client.send(arena, protocol.Methods.dom_resolve_node, resolve_params) catch {
+        resp.sendError(request, 502, "DOM.resolveNode failed");
+        return;
+    };
+    const object_id = extractSimpleJsonString(resolve_response, 0, "\"objectId\"") orelse {
+        resp.sendError(request, 500, "Could not resolve element");
+        return;
+    };
+
+    const js_fn: []const u8 = if (std.mem.eql(u8, check, "visible"))
+        "function() { const s = getComputedStyle(this); if (s.display === 'none' || s.visibility === 'hidden' || s.opacity === '0') return false; const r = this.getBoundingClientRect(); return r.width > 0 && r.height > 0; }"
+    else if (std.mem.eql(u8, check, "enabled"))
+        "function() { return !this.disabled; }"
+    else if (std.mem.eql(u8, check, "checked"))
+        "function() { return !!this.checked; }"
+    else {
+        resp.sendError(request, 400, "Unknown check type. Use: exists, visible, enabled, checked");
+        return;
+    };
+
+    const escaped_fn = jsonEscapeAlloc(arena, js_fn) orelse {
+        resp.sendError(request, 500, "Internal Server Error");
+        return;
+    };
+    const call_params = std.fmt.allocPrint(arena,
+        "{{\"objectId\":\"{s}\",\"functionDeclaration\":\"{s}\",\"returnByValue\":true}}", .{ object_id, escaped_fn }) catch {
+        resp.sendError(request, 500, "Internal Server Error");
+        return;
+    };
+    const call_response = client.send(arena, protocol.Methods.runtime_call_function_on, call_params) catch {
+        resp.sendError(request, 502, "Runtime.callFunctionOn failed");
+        return;
+    };
+
+    const result_val = if (std.mem.indexOf(u8, call_response, "true") != null) "true" else "false";
+    const escaped_check = jsonEscapeAlloc(arena, check) orelse check;
+    const body = std.fmt.allocPrint(arena, "{{\"ref\":\"{s}\",\"{s}\":{s}}}", .{ ref, escaped_check, result_val }) catch {
+        resp.sendError(request, 500, "Internal Server Error");
+        return;
+    };
+    resp.sendJson(request, body);
+}
+
+fn handleBatch(request: *std.http.Server.Request, arena: std.mem.Allocator, bridge: *Bridge) void {
+    const body = readRequestBody(request, arena) orelse {
+        resp.sendError(request, 400, "Missing request body");
+        return;
+    };
+
+    var results: std.ArrayList(u8) = .empty;
+    results.appendSlice(arena, "{\"results\":[") catch {
+        resp.sendError(request, 500, "Internal Server Error");
+        return;
+    };
+
+    var first_tab_id: ?[]const u8 = null;
+    {
+        const tabs = bridge.listTabs(arena) catch null;
+        if (tabs) |t| {
+            if (t.len > 0) first_tab_id = t[0].id;
+        }
+    }
+
+    var cmd_idx: usize = 0;
+    var pos: usize = 0;
+    while (pos < body.len) {
+        const path_start = std.mem.indexOfPos(u8, body, pos, "\"path\"") orelse break;
+        const path_val = extractSimpleJsonString(body, path_start, "\"path\"") orelse break;
+
+        const tab_id = extractSimpleJsonString(body, path_start, "\"tab_id\"") orelse
+            (first_tab_id orelse "");
+
+        const client = bridge.getCdpClient(tab_id);
+
+        if (cmd_idx > 0) results.appendSlice(arena, ",") catch {};
+
+        if (std.mem.eql(u8, path_val, "/navigate")) {
+            const url = extractSimpleJsonString(body, path_start, "\"url\"") orelse {
+                results.appendSlice(arena, "{\"status\":400,\"error\":\"missing url\"}") catch {};
+                cmd_idx += 1;
+                pos = path_start + 6;
+                continue;
+            };
+            if (client) |c| {
+                const escaped_url = jsonEscapeAlloc(arena, url) orelse url;
+                const params = std.fmt.allocPrint(arena, "{{\"url\":\"{s}\"}}", .{escaped_url}) catch {
+                    results.appendSlice(arena, "{\"status\":500,\"error\":\"alloc\"}") catch {};
+                    cmd_idx += 1;
+                    pos = path_start + 6;
+                    continue;
+                };
+                const response = c.send(arena, protocol.Methods.page_navigate, params) catch {
+                    results.appendSlice(arena, "{\"status\":502,\"error\":\"navigate failed\"}") catch {};
+                    cmd_idx += 1;
+                    pos = path_start + 6;
+                    continue;
+                };
+                results.appendSlice(arena, "{\"status\":200,\"body\":") catch {};
+                results.appendSlice(arena, response) catch {};
+                results.appendSlice(arena, "}") catch {};
+            } else {
+                results.appendSlice(arena, "{\"status\":404,\"error\":\"tab not found\"}") catch {};
+            }
+        } else if (std.mem.eql(u8, path_val, "/evaluate")) {
+            const expr = extractSimpleJsonString(body, path_start, "\"expression\"") orelse {
+                results.appendSlice(arena, "{\"status\":400,\"error\":\"missing expression\"}") catch {};
+                cmd_idx += 1;
+                pos = path_start + 6;
+                continue;
+            };
+            if (client) |c| {
+                const escaped = jsonEscapeAlloc(arena, expr) orelse expr;
+                const params = std.fmt.allocPrint(arena, "{{\"expression\":\"{s}\",\"returnByValue\":true}}", .{escaped}) catch {
+                    results.appendSlice(arena, "{\"status\":500,\"error\":\"alloc\"}") catch {};
+                    cmd_idx += 1;
+                    pos = path_start + 6;
+                    continue;
+                };
+                const response = c.send(arena, protocol.Methods.runtime_evaluate, params) catch {
+                    results.appendSlice(arena, "{\"status\":502,\"error\":\"eval failed\"}") catch {};
+                    cmd_idx += 1;
+                    pos = path_start + 6;
+                    continue;
+                };
+                results.appendSlice(arena, "{\"status\":200,\"body\":") catch {};
+                results.appendSlice(arena, response) catch {};
+                results.appendSlice(arena, "}") catch {};
+            } else {
+                results.appendSlice(arena, "{\"status\":404,\"error\":\"tab not found\"}") catch {};
+            }
+        } else if (std.mem.eql(u8, path_val, "/action")) {
+            const action = extractSimpleJsonString(body, path_start, "\"action\"") orelse "click";
+            const ref = extractSimpleJsonString(body, path_start, "\"ref\"") orelse "";
+            const value = extractSimpleJsonString(body, path_start, "\"value\"");
+            if (client) |c| {
+                const actions = @import("../cdp/actions.zig");
+                const kind = actions.ActionKind.fromString(action);
+                if (kind == null) {
+                    results.appendSlice(arena, "{\"status\":400,\"error\":\"unknown action\"}") catch {};
+                } else if (kind.? == .scroll) {
+                    const scroll_params = std.fmt.allocPrint(arena, "{{\"expression\":\"window.scrollBy(0, 500) || 'scrolled'\",\"returnByValue\":true}}", .{}) catch {
+                        results.appendSlice(arena, "{\"status\":500,\"error\":\"alloc\"}") catch {};
+                        cmd_idx += 1;
+                        pos = path_start + 6;
+                        continue;
+                    };
+                    _ = c.send(arena, protocol.Methods.runtime_evaluate, scroll_params) catch {};
+                    results.appendSlice(arena, "{\"status\":200,\"body\":{\"ok\":true,\"action\":\"scrolled\"}}") catch {};
+                } else {
+                    bridge.mu.lockShared();
+                    const snap_cache = bridge.snapshots.get(tab_id);
+                    bridge.mu.unlockShared();
+                    const clean_ref = if (ref.len > 0 and ref[0] == '@') ref[1..] else ref;
+                    const bid = if (snap_cache) |sc| sc.refs.get(clean_ref) else null;
+                    if (bid) |b| {
+                        const rp = std.fmt.allocPrint(arena, "{{\"backendNodeId\":{d}}}", .{b}) catch {
+                            results.appendSlice(arena, "{\"status\":500,\"error\":\"alloc\"}") catch {};
+                            cmd_idx += 1;
+                            pos = path_start + 6;
+                            continue;
+                        };
+                        const rr = c.send(arena, protocol.Methods.dom_resolve_node, rp) catch {
+                            results.appendSlice(arena, "{\"status\":502,\"error\":\"resolve failed\"}") catch {};
+                            cmd_idx += 1;
+                            pos = path_start + 6;
+                            continue;
+                        };
+                        const oid = extractSimpleJsonString(rr, 0, "\"objectId\"") orelse {
+                            results.appendSlice(arena, "{\"status\":500,\"error\":\"no objectId\"}") catch {};
+                            cmd_idx += 1;
+                            pos = path_start + 6;
+                            continue;
+                        };
+                        if (kind.? == .click or kind.? == .check or kind.? == .uncheck) {
+                            cdpClickHttp(request, arena, c, oid, kind.?);
+                            results.appendSlice(arena, "{\"status\":200,\"body\":{\"ok\":true,\"action\":\"clicked\"}}") catch {};
+                        } else {
+                            const js_fn: []const u8 = switch (kind.?) {
+                                .focus => "function() { this.focus(); return 'focused'; }",
+                                .hover => "function() { this.dispatchEvent(new MouseEvent('mouseover', {bubbles:true})); return 'hovered'; }",
+                                .blur => "function() { this.blur(); return 'blurred'; }",
+                                else => "function() { return 'ok'; }",
+                            };
+                            const escaped_fn = jsonEscapeAlloc(arena, js_fn) orelse {
+                                results.appendSlice(arena, "{\"status\":500,\"error\":\"escape\"}") catch {};
+                                cmd_idx += 1;
+                                pos = path_start + 6;
+                                continue;
+                            };
+                            var call_p: []const u8 = undefined;
+                            if (kind.? == .fill or kind.? == .type) {
+                                const v = value orelse "";
+                                for (v) |ch| {
+                                    const cs = std.fmt.allocPrint(arena, "{c}", .{ch}) catch continue;
+                                    const kp = std.fmt.allocPrint(arena, "{{\"type\":\"keyDown\",\"text\":\"{s}\",\"key\":\"{s}\",\"unmodifiedText\":\"{s}\"}}", .{ cs, cs, cs }) catch continue;
+                                    _ = c.send(arena, protocol.Methods.input_dispatch_key_event, kp) catch continue;
+                                    const up = std.fmt.allocPrint(arena, "{{\"type\":\"keyUp\",\"key\":\"{s}\"}}", .{cs}) catch continue;
+                                    _ = c.send(arena, protocol.Methods.input_dispatch_key_event, up) catch continue;
+                                }
+                                results.appendSlice(arena, "{\"status\":200,\"body\":{\"ok\":true,\"action\":\"filled\"}}") catch {};
+                            } else {
+                                call_p = std.fmt.allocPrint(arena, "{{\"objectId\":\"{s}\",\"functionDeclaration\":\"{s}\",\"returnByValue\":true}}", .{ oid, escaped_fn }) catch {
+                                    results.appendSlice(arena, "{\"status\":500,\"error\":\"alloc\"}") catch {};
+                                    cmd_idx += 1;
+                                    pos = path_start + 6;
+                                    continue;
+                                };
+                                _ = c.send(arena, protocol.Methods.runtime_call_function_on, call_p) catch {};
+                                const escaped_action = jsonEscapeAlloc(arena, action) orelse action;
+                                results.print(arena, "{{\"status\":200,\"body\":{{\"ok\":true,\"action\":\"{s}\"}}}}", .{escaped_action}) catch {};
+                            }
+                        }
+                    } else {
+                        results.appendSlice(arena, "{\"status\":400,\"error\":\"ref not found\"}") catch {};
+                    }
+                }
+            } else {
+                results.appendSlice(arena, "{\"status\":404,\"error\":\"tab not found\"}") catch {};
+            }
+        } else if (std.mem.eql(u8, path_val, "/snapshot")) {
+            if (client) |c| {
+                const snap_params = "{\"expression\":\"document.title\",\"returnByValue\":true}";
+                const title_resp = c.send(arena, protocol.Methods.runtime_evaluate, snap_params) catch "{}";
+                _ = title_resp;
+                const a11y_params = std.fmt.allocPrint(arena, "{{\"depth\":-1}}", .{}) catch {
+                    results.appendSlice(arena, "{\"status\":500,\"error\":\"alloc\"}") catch {};
+                    cmd_idx += 1;
+                    pos = path_start + 6;
+                    continue;
+                };
+                const a11y_resp = c.send(arena, protocol.Methods.accessibility_get_full_tree, a11y_params) catch {
+                    results.appendSlice(arena, "{\"status\":502,\"error\":\"a11y tree failed\"}") catch {};
+                    cmd_idx += 1;
+                    pos = path_start + 6;
+                    continue;
+                };
+                results.appendSlice(arena, "{\"status\":200,\"body\":") catch {};
+                results.appendSlice(arena, a11y_resp) catch {};
+                results.appendSlice(arena, "}") catch {};
+            } else {
+                results.appendSlice(arena, "{\"status\":404,\"error\":\"tab not found\"}") catch {};
+            }
+        } else if (std.mem.eql(u8, path_val, "/text")) {
+            if (client) |c| {
+                const text_result = evalValueString(arena, c, "document.body ? document.body.innerText : ''") orelse "";
+                const escaped_text = jsonEscapeAlloc(arena, text_result) orelse "";
+                results.print(arena, "{{\"status\":200,\"body\":{{\"text\":\"{s}\"}}}}", .{escaped_text}) catch {};
+            } else {
+                results.appendSlice(arena, "{\"status\":404,\"error\":\"tab not found\"}") catch {};
+            }
+        } else if (std.mem.eql(u8, path_val, "/wait")) {
+            const wait_ms_str = extractSimpleJsonString(body, path_start, "\"timeout\"") orelse "3000";
+            const wait_ms = std.fmt.parseInt(u64, wait_ms_str, 10) catch 3000;
+            const wait_sel = extractSimpleJsonString(body, path_start, "\"selector\"");
+            if (wait_sel) |ws| {
+                if (client) |c| {
+                    const escaped_ws = jsonEscapeAlloc(arena, ws) orelse ws;
+                    const wp = max_polls: {
+                        break :max_polls wait_ms / 100;
+                    };
+                    var wp_i: u64 = 0;
+                    var found = false;
+                    while (wp_i < wp) : (wp_i += 1) {
+                        const chk = std.fmt.allocPrint(arena, "{{\"expression\":\"!!document.querySelector('{s}')\",\"returnByValue\":true}}", .{escaped_ws}) catch break;
+                        const chk_r = c.send(arena, protocol.Methods.runtime_evaluate, chk) catch break;
+                        if (std.mem.indexOf(u8, chk_r, "true") != null) {
+                            found = true;
+                            break;
+                        }
+                        compat.threadSleep(100 * std.time.ns_per_ms);
+                    }
+                    if (found) {
+                        results.appendSlice(arena, "{\"status\":200,\"body\":{\"status\":\"found\"}}") catch {};
+                    } else {
+                        results.appendSlice(arena, "{\"status\":408,\"body\":{\"status\":\"timeout\"}}") catch {};
+                    }
+                } else {
+                    results.appendSlice(arena, "{\"status\":404,\"error\":\"tab not found\"}") catch {};
+                }
+            } else {
+                compat.threadSleep(wait_ms * std.time.ns_per_ms);
+                results.appendSlice(arena, "{\"status\":200,\"body\":{\"status\":\"waited\"}}") catch {};
+            }
+        } else {
+            const escaped_path = jsonEscapeAlloc(arena, path_val) orelse path_val;
+            results.print(arena, "{{\"status\":400,\"error\":\"unsupported batch command: {s}\"}}", .{escaped_path}) catch {};
+        }
+
+        cmd_idx += 1;
+        const next_path = std.mem.indexOfPos(u8, body, path_start + 6, "\"path\"");
+        pos = next_path orelse body.len;
+    }
+
+    results.appendSlice(arena, "]}") catch {};
+    resp.sendJson(request, results.items);
+}
+
 test "screenshot routes match" {
     for ([_][]const u8{ "/screenshot/annotated", "/screenshot/diff", "/screencast/start", "/screencast/stop" }) |p| {
         try std.testing.expect(p.len > 0);
@@ -5501,8 +5964,10 @@ test "total endpoint count" {
         "/perf/lcp",
         // Tier 3 new endpoints
                    "/ws/start",        "/ws/stop",
+        // Tier 4 new endpoints
+        "/batch",            "/element/state",
     };
-    try std.testing.expectEqual(@as(usize, 87), routes.len);
+    try std.testing.expectEqual(@as(usize, 89), routes.len);
 }
 
 test "buildGetExpression title" {
