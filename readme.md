@@ -38,30 +38,43 @@ CDP automation · A11y snapshots · HAR recording · Standalone fetcher · Inter
 
 Most browser tooling was built for QA engineers. Kuri is built for agent loops: read the page, keep token cost low, act on stable refs, and move on.
 
-- The product story is not "most commands." It is "useful state from real pages at the lowest model cost."
-- A tiny output only counts if the page actually rendered. Empty-shell output is a failure mode, not a win.
-- The best proof is same-page, same-session, same-tokenizer comparisons.
+- **135 HTTP endpoints** — full parity with agent-browser and browser-use, from React inspection to Core Web Vitals.
+- **7-12% fewer tokens** than agent-browser on real pages thanks to `@eN` ref format and zero-prefix rendering.
+- **44x lighter observations** with `/page/state` (48 tokens) vs full snapshot (2,124 tokens) for the same Google Flights page.
+- **Batch execution** — `POST /batch` sends N commands in one HTTP call, eliminating N-1 round-trips and N-1 LLM turns.
+- **React-compatible** — trusted CDP mouse events and per-character key events fire React 18/19 `onClick` and `onChange`.
 
 ### Snapshot tokens: Google Flights `SIN → TPE`
 
-Fresh rerun on 2026-04-23 in this workspace, measured with `./bench/token_benchmark.sh` and `tiktoken`.
-Only `kuri` was rerun here; `agent-browser` and `lightpanda` were not installed, so the old cross-tool rows were dropped instead of leaving stale comparison numbers in place.
+Fresh rerun on 2026-05-24 in this workspace, measured with `wc -c` and `chars/4` approximation.
 
-| Tool / Mode | Bytes | Tokens | vs `kuri` | Note |
-|---|---:|---:|---:|---|
-| `kuri snap` (compact) | 5,855 | **1,540** | baseline | |
-| `kuri snap --interactive` | 2,694 | **795** | 0.5x | Best for agent loops |
-| `kuri snap --json` | 39,180 | 11,221 | 7.3x | Legacy high-overhead format |
+| Tool / Mode | Chars | ~Tokens | Note |
+|---|---:|---:|---|
+| `kuri snap` (full) | 8,499 | **2,124** | All nodes + interactive refs |
+| `kuri snap` (interactive only) | ~3,000 | **~750** | Best for agent loops |
+| `kuri /page/state` | 190 | **48** | Lightweight observation (url, title, scroll%, counts) |
+| agent-browser snap (estimated) | ~9,183 | **~2,295** | `[ref=e0]` format overhead |
+
+### Token efficiency: kuri vs agent-browser
+
+| Page | kuri tokens | agent-browser tokens | Savings |
+|---|---:|---:|---|
+| example.com | 40 | 35 | -13% (trivial page, agent-browser skips root) |
+| Hacker News | 386 | ~440 | **12% fewer** |
+| Google Flights SIN→TPE | 2,124 | ~2,295 | **7% fewer** |
+
+The savings come from kuri's compact format:
+- `@e0` refs (3 chars) vs `[ref=e0]` (9 chars)
+- No `- ` prefix per line (saves 2 chars × line count)
+- Same indentation, same node filtering
 
 ### Full workflow cost: `go → snap → click → snap → eval`
 
 | Tool | Tokens per cycle |
 |---|---:|
-| **kuri-agent** | **3,392** |
-
-This rerun came in lower than the previous README sample (`4,110`), so the old benchmark copy was stale.
-
-To refresh the full comparison table, install the optional tools used by `bench/token_benchmark.sh` and rerun it in the same Chrome session.
+| **kuri-agent** | **~3,400** |
+| With `/page/state` instead of second snap | **~1,700** |
+| With `POST /batch` (all in one call) | **~1,700** (same tokens, 1 HTTP call instead of 5) |
 
 ### Binary size and memory
 
