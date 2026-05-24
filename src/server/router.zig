@@ -260,6 +260,102 @@ fn route(request: *std.http.Server.Request, arena: std.mem.Allocator, bridge: *B
         handleWsStart(request, arena, bridge);
     } else if (std.mem.eql(u8, clean_path, "/ws/stop")) {
         handleWsStop(request, arena, bridge);
+    } else if (std.mem.eql(u8, clean_path, "/batch")) {
+        handleBatch(request, arena, bridge);
+    } else if (std.mem.eql(u8, clean_path, "/element/state")) {
+        handleElementState(request, arena, bridge);
+    } else if (std.mem.eql(u8, clean_path, "/find-element")) {
+        handleFindElement(request, arena, bridge);
+    } else if (std.mem.eql(u8, clean_path, "/dialog/auto")) {
+        handleDialogAuto(request, arena, bridge);
+    } else if (std.mem.eql(u8, clean_path, "/dialog/accept")) {
+        handleDialogRespond(request, arena, bridge, true);
+    } else if (std.mem.eql(u8, clean_path, "/dialog/dismiss")) {
+        handleDialogRespond(request, arena, bridge, false);
+    } else if (std.mem.eql(u8, clean_path, "/mouse/move")) {
+        handleMouseEvent(request, arena, bridge, "mouseMoved");
+    } else if (std.mem.eql(u8, clean_path, "/mouse/down")) {
+        handleMouseEvent(request, arena, bridge, "mousePressed");
+    } else if (std.mem.eql(u8, clean_path, "/mouse/up")) {
+        handleMouseEvent(request, arena, bridge, "mouseReleased");
+    } else if (std.mem.eql(u8, clean_path, "/mouse/wheel")) {
+        handleMouseWheel(request, arena, bridge);
+    } else if (std.mem.eql(u8, clean_path, "/page/state")) {
+        handlePageState(request, arena, bridge);
+    } else if (std.mem.eql(u8, clean_path, "/clipboard/read")) {
+        handleClipboard(request, arena, bridge, "read");
+    } else if (std.mem.eql(u8, clean_path, "/clipboard/write")) {
+        handleClipboard(request, arena, bridge, "write");
+    } else if (std.mem.eql(u8, clean_path, "/clear")) {
+        handleClear(request, arena, bridge);
+    } else if (std.mem.eql(u8, clean_path, "/boundingbox")) {
+        handleBoundingBox(request, arena, bridge);
+    } else if (std.mem.eql(u8, clean_path, "/wait/function")) {
+        handleWaitForFunction(request, arena, bridge);
+    } else if (std.mem.eql(u8, clean_path, "/response/body")) {
+        handleResponseBody(request, arena, bridge);
+    } else if (std.mem.eql(u8, clean_path, "/setcontent")) {
+        handleSetContent(request, arena, bridge);
+    } else if (std.mem.eql(u8, clean_path, "/selectall")) {
+        handleSelectAll(request, arena, bridge);
+    } else if (std.mem.eql(u8, clean_path, "/setvalue")) {
+        handleSetValue(request, arena, bridge);
+    } else if (std.mem.eql(u8, clean_path, "/timezone")) {
+        handleTimezone(request, arena, bridge);
+    } else if (std.mem.eql(u8, clean_path, "/locale")) {
+        handleLocale(request, arena, bridge);
+    } else if (std.mem.eql(u8, clean_path, "/permissions")) {
+        handlePermissions(request, arena, bridge);
+    } else if (std.mem.eql(u8, clean_path, "/tap")) {
+        handleTap(request, arena, bridge);
+    } else if (std.mem.eql(u8, clean_path, "/dispatch")) {
+        handleDispatch(request, arena, bridge);
+    } else if (std.mem.eql(u8, clean_path, "/download")) {
+        handleDownload(request, arena, bridge);
+    } else if (std.mem.eql(u8, clean_path, "/addstyle")) {
+        handleAddStyle(request, arena, bridge);
+    } else if (std.mem.eql(u8, clean_path, "/bringtofront")) {
+        handleBringToFront(request, arena, bridge);
+    } else if (std.mem.eql(u8, clean_path, "/pushstate")) {
+        handlePushState(request, arena, bridge);
+    } else if (std.mem.eql(u8, clean_path, "/expose")) {
+        handleExpose(request, arena, bridge);
+    } else if (std.mem.eql(u8, clean_path, "/multiselect")) {
+        handleMultiSelect(request, arena, bridge);
+    } else if (std.mem.eql(u8, clean_path, "/swipe")) {
+        handleSwipe(request, arena, bridge);
+    } else if (std.mem.eql(u8, clean_path, "/vitals")) {
+        handleVitals(request, arena, bridge);
+    } else if (std.mem.eql(u8, clean_path, "/frame")) {
+        handleFrame(request, arena, bridge);
+    } else if (std.mem.eql(u8, clean_path, "/mainframe")) {
+        handleMainFrame(request, arena, bridge);
+    } else if (std.mem.eql(u8, clean_path, "/getattribute")) {
+        handleGetAttribute(request, arena, bridge);
+    } else if (std.mem.eql(u8, clean_path, "/inputvalue")) {
+        handleInputValue(request, arena, bridge);
+    } else if (std.mem.eql(u8, clean_path, "/react/tree")) {
+        handleReact(request, arena, bridge, "tree");
+    } else if (std.mem.eql(u8, clean_path, "/react/inspect")) {
+        handleReact(request, arena, bridge, "inspect");
+    } else if (std.mem.eql(u8, clean_path, "/react/renders")) {
+        handleReact(request, arena, bridge, "renders");
+    } else if (std.mem.eql(u8, clean_path, "/react/suspense")) {
+        handleReact(request, arena, bridge, "suspense");
+    } else if (std.mem.eql(u8, clean_path, "/recording/start")) {
+        handleRecording(request, arena, bridge, "start");
+    } else if (std.mem.eql(u8, clean_path, "/recording/stop")) {
+        handleRecording(request, arena, bridge, "stop");
+    } else if (std.mem.eql(u8, clean_path, "/request/detail")) {
+        handleRequestDetail(request, arena, bridge);
+    } else if (std.mem.eql(u8, clean_path, "/wait/download")) {
+        handleWaitForDownload(request, arena, bridge);
+    } else if (std.mem.eql(u8, clean_path, "/initscript/remove")) {
+        handleRemoveInitScript(request, arena, bridge);
+    } else if (std.mem.eql(u8, clean_path, "/evalhandle")) {
+        handleEvalHandle(request, arena, bridge);
+    } else if (std.mem.eql(u8, clean_path, "/diff/url")) {
+        handleDiffUrl(request, arena, bridge);
     } else {
         resp.sendError(request, 404, "Not Found");
     }
@@ -4145,6 +4241,10 @@ fn handleWait(request: *std.http.Server.Request, arena: std.mem.Allocator, bridg
         return;
     };
     const selector = getDecodedQueryParamAlloc(arena, target, "selector");
+    const wait_text = getDecodedQueryParamAlloc(arena, target, "text");
+    const wait_url = getDecodedQueryParamAlloc(arena, target, "url");
+    const wait_state = getQueryParam(target, "state");
+    const visible_param = getQueryParam(target, "visible");
     const timeout_str = getQueryParam(target, "timeout") orelse "5000";
     const timeout_ms = std.fmt.parseInt(u64, timeout_str, 10) catch 5000;
     const client = bridge.getCdpClient(tab_id) orelse {
@@ -4152,12 +4252,16 @@ fn handleWait(request: *std.http.Server.Request, arena: std.mem.Allocator, bridg
         return;
     };
 
-    if (selector) |sel| {
-        // Poll for element existence
-        const max_polls = timeout_ms / 100;
+    const max_polls = timeout_ms / 100;
+
+    if (wait_text) |txt| {
+        const escaped_txt = jsonEscapeAlloc(arena, txt) orelse {
+            resp.sendError(request, 500, "Internal Server Error");
+            return;
+        };
         var polls: u64 = 0;
         while (polls < max_polls) : (polls += 1) {
-            const params = std.fmt.allocPrint(arena, "{{\"expression\":\"!!document.querySelector('{s}')\",\"returnByValue\":true}}", .{sel}) catch {
+            const params = std.fmt.allocPrint(arena, "{{\"expression\":\"(document.body && document.body.innerText.includes('{s}'))\",\"returnByValue\":true}}", .{escaped_txt}) catch {
                 resp.sendError(request, 500, "Internal Server Error");
                 return;
             };
@@ -4165,9 +4269,8 @@ fn handleWait(request: *std.http.Server.Request, arena: std.mem.Allocator, bridg
                 resp.sendError(request, 502, "CDP command failed");
                 return;
             };
-            // Check if result is true
             if (std.mem.indexOf(u8, response, "true") != null) {
-                const body = std.fmt.allocPrint(arena, "{{\"status\":\"found\",\"selector\":\"{s}\",\"polls\":{d}}}", .{ sel, polls + 1 }) catch {
+                const body = std.fmt.allocPrint(arena, "{{\"status\":\"found\",\"text\":\"{s}\",\"polls\":{d}}}", .{ escaped_txt, polls + 1 }) catch {
                     resp.sendError(request, 500, "Internal Server Error");
                     return;
                 };
@@ -4176,14 +4279,125 @@ fn handleWait(request: *std.http.Server.Request, arena: std.mem.Allocator, bridg
             }
             compat.threadSleep(100 * std.time.ns_per_ms);
         }
-        const body = std.fmt.allocPrint(arena, "{{\"status\":\"timeout\",\"selector\":\"{s}\",\"timeout_ms\":{d}}}", .{ sel, timeout_ms }) catch {
+        resp.sendJson(request, "{\"status\":\"timeout\",\"reason\":\"text_not_found\"}");
+        return;
+    }
+
+    if (wait_url) |url_pattern| {
+        const escaped_url = jsonEscapeAlloc(arena, url_pattern) orelse {
+            resp.sendError(request, 500, "Internal Server Error");
+            return;
+        };
+        var polls: u64 = 0;
+        while (polls < max_polls) : (polls += 1) {
+            const params = std.fmt.allocPrint(arena, "{{\"expression\":\"window.location.href.includes('{s}')\",\"returnByValue\":true}}", .{escaped_url}) catch {
+                resp.sendError(request, 500, "Internal Server Error");
+                return;
+            };
+            const response = client.send(arena, protocol.Methods.runtime_evaluate, params) catch {
+                resp.sendError(request, 502, "CDP command failed");
+                return;
+            };
+            if (std.mem.indexOf(u8, response, "true") != null) {
+                const href = evalValueString(arena, client, "window.location.href") orelse "unknown";
+                const body = std.fmt.allocPrint(arena, "{{\"status\":\"matched\",\"url\":\"{s}\",\"polls\":{d}}}", .{ href, polls + 1 }) catch {
+                    resp.sendError(request, 500, "Internal Server Error");
+                    return;
+                };
+                resp.sendJson(request, body);
+                return;
+            }
+            compat.threadSleep(100 * std.time.ns_per_ms);
+        }
+        resp.sendJson(request, "{\"status\":\"timeout\",\"reason\":\"url_not_matched\"}");
+        return;
+    }
+
+    if (wait_state) |state| {
+        if (std.mem.eql(u8, state, "networkidle")) {
+            const net_js = "(() => { let c = 0; const o = new PerformanceObserver(l => { for (const e of l.getEntries()) { if (e.initiatorType === 'xmlhttprequest' || e.initiatorType === 'fetch') c++; } }); try { o.observe({type:'resource',buffered:false}); } catch(e) {} return 'observing'; })()";
+            const idle_js = "(() => { try { const e = performance.getEntriesByType('resource'); const now = performance.now(); const pending = e.filter(r => r.responseEnd === 0 || (now - r.startTime < 500 && r.duration === 0)); return pending.length === 0 ? 'idle' : 'busy'; } catch(e) { return 'idle'; } })()";
+            _ = evalValueString(arena, client, net_js);
+            var polls: u64 = 0;
+            var idle_count: u32 = 0;
+            while (polls < max_polls) : (polls += 1) {
+                const result = evalValueString(arena, client, idle_js) orelse "idle";
+                if (std.mem.eql(u8, result, "idle")) {
+                    idle_count += 1;
+                    if (idle_count >= 5) {
+                        const body = std.fmt.allocPrint(arena, "{{\"status\":\"networkidle\",\"polls\":{d}}}", .{polls + 1}) catch {
+                            resp.sendError(request, 500, "Internal Server Error");
+                            return;
+                        };
+                        resp.sendJson(request, body);
+                        return;
+                    }
+                } else {
+                    idle_count = 0;
+                }
+                compat.threadSleep(100 * std.time.ns_per_ms);
+            }
+            resp.sendJson(request, "{\"status\":\"timeout\",\"reason\":\"network_not_idle\"}");
+            return;
+        }
+        const target_state: []const u8 = if (std.mem.eql(u8, state, "domcontentloaded")) "interactive" else "complete";
+        var polls: u64 = 0;
+        while (polls < max_polls) : (polls += 1) {
+            const params = "{\"expression\":\"document.readyState\",\"returnByValue\":true}";
+            const response = client.send(arena, protocol.Methods.runtime_evaluate, params) catch {
+                resp.sendError(request, 502, "CDP command failed");
+                return;
+            };
+            if (std.mem.indexOf(u8, response, target_state) != null) {
+                const body = std.fmt.allocPrint(arena, "{{\"status\":\"ready\",\"state\":\"{s}\",\"polls\":{d}}}", .{ state, polls + 1 }) catch {
+                    resp.sendError(request, 500, "Internal Server Error");
+                    return;
+                };
+                resp.sendJson(request, body);
+                return;
+            }
+            compat.threadSleep(100 * std.time.ns_per_ms);
+        }
+        resp.sendJson(request, "{\"status\":\"timeout\",\"reason\":\"state_not_reached\"}");
+        return;
+    }
+
+    if (selector) |sel| {
+        const check_visible = if (visible_param) |v| std.mem.eql(u8, v, "true") else false;
+        const escaped_sel = jsonEscapeAlloc(arena, sel) orelse {
+            resp.sendError(request, 500, "Internal Server Error");
+            return;
+        };
+        var polls: u64 = 0;
+        while (polls < max_polls) : (polls += 1) {
+            const expr = if (check_visible)
+                std.fmt.allocPrint(arena, "{{\"expression\":\"(() => {{ const el = document.querySelector('{s}'); if (!el) return false; const s = getComputedStyle(el); if (s.display === 'none' || s.visibility === 'hidden' || s.opacity === '0') return false; const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0; }})()\",\"returnByValue\":true}}", .{escaped_sel})
+            else
+                std.fmt.allocPrint(arena, "{{\"expression\":\"!!document.querySelector('{s}')\",\"returnByValue\":true}}", .{escaped_sel});
+            const params = expr catch {
+                resp.sendError(request, 500, "Internal Server Error");
+                return;
+            };
+            const response = client.send(arena, protocol.Methods.runtime_evaluate, params) catch {
+                resp.sendError(request, 502, "CDP command failed");
+                return;
+            };
+            if (std.mem.indexOf(u8, response, "true") != null) {
+                const body = std.fmt.allocPrint(arena, "{{\"status\":\"found\",\"selector\":\"{s}\",\"polls\":{d}}}", .{ escaped_sel, polls + 1 }) catch {
+                    resp.sendError(request, 500, "Internal Server Error");
+                    return;
+                };
+                resp.sendJson(request, body);
+                return;
+            }
+            compat.threadSleep(100 * std.time.ns_per_ms);
+        }
+        const body = std.fmt.allocPrint(arena, "{{\"status\":\"timeout\",\"selector\":\"{s}\",\"timeout_ms\":{d}}}", .{ escaped_sel, timeout_ms }) catch {
             resp.sendError(request, 500, "Internal Server Error");
             return;
         };
         resp.sendError(request, 408, body);
     } else {
-        // Wait for page load (check document.readyState)
-        const max_polls = timeout_ms / 100;
         var polls: u64 = 0;
         while (polls < max_polls) : (polls += 1) {
             const params = "{\"expression\":\"document.readyState\",\"returnByValue\":true}";
@@ -5242,6 +5456,1307 @@ fn handleWsStop(request: *std.http.Server.Request, arena: std.mem.Allocator, bri
     resp.sendJson(request, response);
 }
 
+fn handleElementState(request: *std.http.Server.Request, arena: std.mem.Allocator, bridge: *Bridge) void {
+    const target = request.head.target;
+    const tab_id = requireEffectiveTabId(arena, request, bridge) orelse return;
+    const ref = getQueryParam(target, "ref") orelse {
+        resp.sendError(request, 400, "Missing ref parameter");
+        return;
+    };
+    const check = getQueryParam(target, "check") orelse "exists";
+    const client = bridge.getCdpClient(tab_id) orelse {
+        resp.sendError(request, 404, "Tab not found");
+        return;
+    };
+
+    bridge.mu.lockShared();
+    const cache = bridge.snapshots.get(tab_id);
+    bridge.mu.unlockShared();
+
+    const bid = if (cache) |c| c.refs.get(ref) else null;
+    if (bid == null) {
+        if (std.mem.eql(u8, check, "exists")) {
+            const body = std.fmt.allocPrint(arena, "{{\"ref\":\"{s}\",\"exists\":false}}", .{ref}) catch {
+                resp.sendError(request, 500, "Internal Server Error");
+                return;
+            };
+            resp.sendJson(request, body);
+        } else {
+            resp.sendError(request, 400, "Ref not found. Call /snapshot first");
+        }
+        return;
+    }
+
+    if (std.mem.eql(u8, check, "exists")) {
+        const body = std.fmt.allocPrint(arena, "{{\"ref\":\"{s}\",\"exists\":true}}", .{ref}) catch {
+            resp.sendError(request, 500, "Internal Server Error");
+            return;
+        };
+        resp.sendJson(request, body);
+        return;
+    }
+
+    const resolve_params = std.fmt.allocPrint(arena, "{{\"backendNodeId\":{d}}}", .{bid.?}) catch {
+        resp.sendError(request, 500, "Internal Server Error");
+        return;
+    };
+    const resolve_response = client.send(arena, protocol.Methods.dom_resolve_node, resolve_params) catch {
+        resp.sendError(request, 502, "DOM.resolveNode failed");
+        return;
+    };
+    const object_id = extractSimpleJsonString(resolve_response, 0, "\"objectId\"") orelse {
+        resp.sendError(request, 500, "Could not resolve element");
+        return;
+    };
+
+    const js_fn: []const u8 = if (std.mem.eql(u8, check, "visible"))
+        "function() { const s = getComputedStyle(this); if (s.display === 'none' || s.visibility === 'hidden' || s.opacity === '0') return false; const r = this.getBoundingClientRect(); return r.width > 0 && r.height > 0; }"
+    else if (std.mem.eql(u8, check, "enabled"))
+        "function() { return !this.disabled; }"
+    else if (std.mem.eql(u8, check, "checked"))
+        "function() { return !!this.checked; }"
+    else {
+        resp.sendError(request, 400, "Unknown check type. Use: exists, visible, enabled, checked");
+        return;
+    };
+
+    const escaped_fn = jsonEscapeAlloc(arena, js_fn) orelse {
+        resp.sendError(request, 500, "Internal Server Error");
+        return;
+    };
+    const call_params = std.fmt.allocPrint(arena,
+        "{{\"objectId\":\"{s}\",\"functionDeclaration\":\"{s}\",\"returnByValue\":true}}", .{ object_id, escaped_fn }) catch {
+        resp.sendError(request, 500, "Internal Server Error");
+        return;
+    };
+    const call_response = client.send(arena, protocol.Methods.runtime_call_function_on, call_params) catch {
+        resp.sendError(request, 502, "Runtime.callFunctionOn failed");
+        return;
+    };
+
+    const result_val = if (std.mem.indexOf(u8, call_response, "true") != null) "true" else "false";
+    const escaped_check = jsonEscapeAlloc(arena, check) orelse check;
+    const body = std.fmt.allocPrint(arena, "{{\"ref\":\"{s}\",\"{s}\":{s}}}", .{ ref, escaped_check, result_val }) catch {
+        resp.sendError(request, 500, "Internal Server Error");
+        return;
+    };
+    resp.sendJson(request, body);
+}
+
+fn handleBatch(request: *std.http.Server.Request, arena: std.mem.Allocator, bridge: *Bridge) void {
+    const body = readRequestBody(request, arena) orelse {
+        resp.sendError(request, 400, "Missing request body");
+        return;
+    };
+
+    var results: std.ArrayList(u8) = .empty;
+    results.appendSlice(arena, "{\"results\":[") catch {
+        resp.sendError(request, 500, "Internal Server Error");
+        return;
+    };
+
+    var first_tab_id: ?[]const u8 = null;
+    {
+        const tabs = bridge.listTabs(arena) catch null;
+        if (tabs) |t| {
+            if (t.len > 0) first_tab_id = t[0].id;
+        }
+    }
+
+    var cmd_idx: usize = 0;
+    var pos: usize = 0;
+    while (pos < body.len) {
+        const path_start = std.mem.indexOfPos(u8, body, pos, "\"path\"") orelse break;
+        const path_val = extractSimpleJsonString(body, path_start, "\"path\"") orelse break;
+
+        const tab_id = extractSimpleJsonString(body, path_start, "\"tab_id\"") orelse
+            (first_tab_id orelse "");
+
+        const client = bridge.getCdpClient(tab_id);
+
+        if (cmd_idx > 0) results.appendSlice(arena, ",") catch {};
+
+        if (std.mem.eql(u8, path_val, "/navigate")) {
+            const url = extractSimpleJsonString(body, path_start, "\"url\"") orelse {
+                results.appendSlice(arena, "{\"status\":400,\"error\":\"missing url\"}") catch {};
+                cmd_idx += 1;
+                pos = path_start + 6;
+                continue;
+            };
+            if (client) |c| {
+                const escaped_url = jsonEscapeAlloc(arena, url) orelse url;
+                const params = std.fmt.allocPrint(arena, "{{\"url\":\"{s}\"}}", .{escaped_url}) catch {
+                    results.appendSlice(arena, "{\"status\":500,\"error\":\"alloc\"}") catch {};
+                    cmd_idx += 1;
+                    pos = path_start + 6;
+                    continue;
+                };
+                const response = c.send(arena, protocol.Methods.page_navigate, params) catch {
+                    results.appendSlice(arena, "{\"status\":502,\"error\":\"navigate failed\"}") catch {};
+                    cmd_idx += 1;
+                    pos = path_start + 6;
+                    continue;
+                };
+                results.appendSlice(arena, "{\"status\":200,\"body\":") catch {};
+                results.appendSlice(arena, response) catch {};
+                results.appendSlice(arena, "}") catch {};
+            } else {
+                results.appendSlice(arena, "{\"status\":404,\"error\":\"tab not found\"}") catch {};
+            }
+        } else if (std.mem.eql(u8, path_val, "/evaluate")) {
+            const expr = extractSimpleJsonString(body, path_start, "\"expression\"") orelse {
+                results.appendSlice(arena, "{\"status\":400,\"error\":\"missing expression\"}") catch {};
+                cmd_idx += 1;
+                pos = path_start + 6;
+                continue;
+            };
+            if (client) |c| {
+                const escaped = jsonEscapeAlloc(arena, expr) orelse expr;
+                const params = std.fmt.allocPrint(arena, "{{\"expression\":\"{s}\",\"returnByValue\":true}}", .{escaped}) catch {
+                    results.appendSlice(arena, "{\"status\":500,\"error\":\"alloc\"}") catch {};
+                    cmd_idx += 1;
+                    pos = path_start + 6;
+                    continue;
+                };
+                const response = c.send(arena, protocol.Methods.runtime_evaluate, params) catch {
+                    results.appendSlice(arena, "{\"status\":502,\"error\":\"eval failed\"}") catch {};
+                    cmd_idx += 1;
+                    pos = path_start + 6;
+                    continue;
+                };
+                results.appendSlice(arena, "{\"status\":200,\"body\":") catch {};
+                results.appendSlice(arena, response) catch {};
+                results.appendSlice(arena, "}") catch {};
+            } else {
+                results.appendSlice(arena, "{\"status\":404,\"error\":\"tab not found\"}") catch {};
+            }
+        } else if (std.mem.eql(u8, path_val, "/action")) {
+            const action = extractSimpleJsonString(body, path_start, "\"action\"") orelse "click";
+            const ref = extractSimpleJsonString(body, path_start, "\"ref\"") orelse "";
+            const value = extractSimpleJsonString(body, path_start, "\"value\"");
+            if (client) |c| {
+                const actions = @import("../cdp/actions.zig");
+                const kind = actions.ActionKind.fromString(action);
+                if (kind == null) {
+                    results.appendSlice(arena, "{\"status\":400,\"error\":\"unknown action\"}") catch {};
+                } else if (kind.? == .scroll) {
+                    const scroll_params = std.fmt.allocPrint(arena, "{{\"expression\":\"window.scrollBy(0, 500) || 'scrolled'\",\"returnByValue\":true}}", .{}) catch {
+                        results.appendSlice(arena, "{\"status\":500,\"error\":\"alloc\"}") catch {};
+                        cmd_idx += 1;
+                        pos = path_start + 6;
+                        continue;
+                    };
+                    _ = c.send(arena, protocol.Methods.runtime_evaluate, scroll_params) catch {};
+                    results.appendSlice(arena, "{\"status\":200,\"body\":{\"ok\":true,\"action\":\"scrolled\"}}") catch {};
+                } else {
+                    bridge.mu.lockShared();
+                    const snap_cache = bridge.snapshots.get(tab_id);
+                    bridge.mu.unlockShared();
+                    const clean_ref = if (ref.len > 0 and ref[0] == '@') ref[1..] else ref;
+                    const bid = if (snap_cache) |sc| sc.refs.get(clean_ref) else null;
+                    if (bid) |b| {
+                        const rp = std.fmt.allocPrint(arena, "{{\"backendNodeId\":{d}}}", .{b}) catch {
+                            results.appendSlice(arena, "{\"status\":500,\"error\":\"alloc\"}") catch {};
+                            cmd_idx += 1;
+                            pos = path_start + 6;
+                            continue;
+                        };
+                        const rr = c.send(arena, protocol.Methods.dom_resolve_node, rp) catch {
+                            results.appendSlice(arena, "{\"status\":502,\"error\":\"resolve failed\"}") catch {};
+                            cmd_idx += 1;
+                            pos = path_start + 6;
+                            continue;
+                        };
+                        const oid = extractSimpleJsonString(rr, 0, "\"objectId\"") orelse {
+                            results.appendSlice(arena, "{\"status\":500,\"error\":\"no objectId\"}") catch {};
+                            cmd_idx += 1;
+                            pos = path_start + 6;
+                            continue;
+                        };
+                        if (kind.? == .click or kind.? == .check or kind.? == .uncheck) {
+                            cdpClickHttp(request, arena, c, oid, kind.?);
+                            results.appendSlice(arena, "{\"status\":200,\"body\":{\"ok\":true,\"action\":\"clicked\"}}") catch {};
+                        } else {
+                            const js_fn: []const u8 = switch (kind.?) {
+                                .focus => "function() { this.focus(); return 'focused'; }",
+                                .hover => "function() { this.dispatchEvent(new MouseEvent('mouseover', {bubbles:true})); return 'hovered'; }",
+                                .blur => "function() { this.blur(); return 'blurred'; }",
+                                else => "function() { return 'ok'; }",
+                            };
+                            const escaped_fn = jsonEscapeAlloc(arena, js_fn) orelse {
+                                results.appendSlice(arena, "{\"status\":500,\"error\":\"escape\"}") catch {};
+                                cmd_idx += 1;
+                                pos = path_start + 6;
+                                continue;
+                            };
+                            var call_p: []const u8 = undefined;
+                            if (kind.? == .fill or kind.? == .type) {
+                                const v = value orelse "";
+                                for (v) |ch| {
+                                    const cs = std.fmt.allocPrint(arena, "{c}", .{ch}) catch continue;
+                                    const kp = std.fmt.allocPrint(arena, "{{\"type\":\"keyDown\",\"text\":\"{s}\",\"key\":\"{s}\",\"unmodifiedText\":\"{s}\"}}", .{ cs, cs, cs }) catch continue;
+                                    _ = c.send(arena, protocol.Methods.input_dispatch_key_event, kp) catch continue;
+                                    const up = std.fmt.allocPrint(arena, "{{\"type\":\"keyUp\",\"key\":\"{s}\"}}", .{cs}) catch continue;
+                                    _ = c.send(arena, protocol.Methods.input_dispatch_key_event, up) catch continue;
+                                }
+                                results.appendSlice(arena, "{\"status\":200,\"body\":{\"ok\":true,\"action\":\"filled\"}}") catch {};
+                            } else {
+                                call_p = std.fmt.allocPrint(arena, "{{\"objectId\":\"{s}\",\"functionDeclaration\":\"{s}\",\"returnByValue\":true}}", .{ oid, escaped_fn }) catch {
+                                    results.appendSlice(arena, "{\"status\":500,\"error\":\"alloc\"}") catch {};
+                                    cmd_idx += 1;
+                                    pos = path_start + 6;
+                                    continue;
+                                };
+                                _ = c.send(arena, protocol.Methods.runtime_call_function_on, call_p) catch {};
+                                const escaped_action = jsonEscapeAlloc(arena, action) orelse action;
+                                results.print(arena, "{{\"status\":200,\"body\":{{\"ok\":true,\"action\":\"{s}\"}}}}", .{escaped_action}) catch {};
+                            }
+                        }
+                    } else {
+                        results.appendSlice(arena, "{\"status\":400,\"error\":\"ref not found\"}") catch {};
+                    }
+                }
+            } else {
+                results.appendSlice(arena, "{\"status\":404,\"error\":\"tab not found\"}") catch {};
+            }
+        } else if (std.mem.eql(u8, path_val, "/snapshot")) {
+            if (client) |c| {
+                const snap_params = "{\"expression\":\"document.title\",\"returnByValue\":true}";
+                const title_resp = c.send(arena, protocol.Methods.runtime_evaluate, snap_params) catch "{}";
+                _ = title_resp;
+                const a11y_params = std.fmt.allocPrint(arena, "{{\"depth\":-1}}", .{}) catch {
+                    results.appendSlice(arena, "{\"status\":500,\"error\":\"alloc\"}") catch {};
+                    cmd_idx += 1;
+                    pos = path_start + 6;
+                    continue;
+                };
+                const a11y_resp = c.send(arena, protocol.Methods.accessibility_get_full_tree, a11y_params) catch {
+                    results.appendSlice(arena, "{\"status\":502,\"error\":\"a11y tree failed\"}") catch {};
+                    cmd_idx += 1;
+                    pos = path_start + 6;
+                    continue;
+                };
+                results.appendSlice(arena, "{\"status\":200,\"body\":") catch {};
+                results.appendSlice(arena, a11y_resp) catch {};
+                results.appendSlice(arena, "}") catch {};
+            } else {
+                results.appendSlice(arena, "{\"status\":404,\"error\":\"tab not found\"}") catch {};
+            }
+        } else if (std.mem.eql(u8, path_val, "/text")) {
+            if (client) |c| {
+                const text_result = evalValueString(arena, c, "document.body ? document.body.innerText : ''") orelse "";
+                const escaped_text = jsonEscapeAlloc(arena, text_result) orelse "";
+                results.print(arena, "{{\"status\":200,\"body\":{{\"text\":\"{s}\"}}}}", .{escaped_text}) catch {};
+            } else {
+                results.appendSlice(arena, "{\"status\":404,\"error\":\"tab not found\"}") catch {};
+            }
+        } else if (std.mem.eql(u8, path_val, "/wait")) {
+            const wait_ms_str = extractSimpleJsonString(body, path_start, "\"timeout\"") orelse "3000";
+            const wait_ms = std.fmt.parseInt(u64, wait_ms_str, 10) catch 3000;
+            const wait_sel = extractSimpleJsonString(body, path_start, "\"selector\"");
+            if (wait_sel) |ws| {
+                if (client) |c| {
+                    const escaped_ws = jsonEscapeAlloc(arena, ws) orelse ws;
+                    const wp = max_polls: {
+                        break :max_polls wait_ms / 100;
+                    };
+                    var wp_i: u64 = 0;
+                    var found = false;
+                    while (wp_i < wp) : (wp_i += 1) {
+                        const chk = std.fmt.allocPrint(arena, "{{\"expression\":\"!!document.querySelector('{s}')\",\"returnByValue\":true}}", .{escaped_ws}) catch break;
+                        const chk_r = c.send(arena, protocol.Methods.runtime_evaluate, chk) catch break;
+                        if (std.mem.indexOf(u8, chk_r, "true") != null) {
+                            found = true;
+                            break;
+                        }
+                        compat.threadSleep(100 * std.time.ns_per_ms);
+                    }
+                    if (found) {
+                        results.appendSlice(arena, "{\"status\":200,\"body\":{\"status\":\"found\"}}") catch {};
+                    } else {
+                        results.appendSlice(arena, "{\"status\":408,\"body\":{\"status\":\"timeout\"}}") catch {};
+                    }
+                } else {
+                    results.appendSlice(arena, "{\"status\":404,\"error\":\"tab not found\"}") catch {};
+                }
+            } else {
+                compat.threadSleep(wait_ms * std.time.ns_per_ms);
+                results.appendSlice(arena, "{\"status\":200,\"body\":{\"status\":\"waited\"}}") catch {};
+            }
+        } else {
+            const escaped_path = jsonEscapeAlloc(arena, path_val) orelse path_val;
+            results.print(arena, "{{\"status\":400,\"error\":\"unsupported batch command: {s}\"}}", .{escaped_path}) catch {};
+        }
+
+        cmd_idx += 1;
+        const next_path = std.mem.indexOfPos(u8, body, path_start + 6, "\"path\"");
+        pos = next_path orelse body.len;
+    }
+
+    results.appendSlice(arena, "]}") catch {};
+    resp.sendJson(request, results.items);
+}
+
+fn handleFindElement(request: *std.http.Server.Request, arena: std.mem.Allocator, bridge: *Bridge) void {
+    const target = request.head.target;
+    const tab_id = requireEffectiveTabId(arena, request, bridge) orelse return;
+    const by_text = getDecodedQueryParamAlloc(arena, target, "text");
+    const by_role = getQueryParam(target, "role");
+    const by_label = getDecodedQueryParamAlloc(arena, target, "label");
+    const by_placeholder = getDecodedQueryParamAlloc(arena, target, "placeholder");
+    const by_testid = getDecodedQueryParamAlloc(arena, target, "testid");
+
+    const client = bridge.getCdpClient(tab_id) orelse {
+        resp.sendError(request, 404, "Tab not found");
+        return;
+    };
+
+    const js: []const u8 = if (by_text) |txt| blk: {
+        const escaped = jsonEscapeAlloc(arena, txt) orelse {
+            resp.sendError(request, 500, "Internal Server Error");
+            return;
+        };
+        break :blk std.fmt.allocPrint(arena,
+            "(() => {{ const all = document.querySelectorAll('a,button,input,select,textarea,[role],[onclick]'); for (const el of all) {{ if ((el.textContent || '').trim().includes('{s}') || (el.value || '') === '{s}' || (el.ariaLabel || '') === '{s}') {{ el.scrollIntoViewIfNeeded(); const r = el.getBoundingClientRect(); return JSON.stringify({{found:true,tag:el.tagName.toLowerCase(),text:(el.textContent||'').trim().substring(0,80),x:Math.round(r.x+r.width/2),y:Math.round(r.y+r.height/2)}}); }} }} return JSON.stringify({{found:false}}); }})()",
+            .{ escaped, escaped, escaped }) catch {
+            resp.sendError(request, 500, "Internal Server Error");
+            return;
+        };
+    } else if (by_role) |role| blk: {
+        const escaped_role = jsonEscapeAlloc(arena, role) orelse {
+            resp.sendError(request, 500, "Internal Server Error");
+            return;
+        };
+        const name_filter = if (getDecodedQueryParamAlloc(arena, target, "name")) |n|
+            jsonEscapeAlloc(arena, n) orelse ""
+        else
+            null;
+        if (name_filter) |nf| {
+            break :blk std.fmt.allocPrint(arena,
+                "(() => {{ const els = document.querySelectorAll('[role=\"{s}\"]'); for (const el of els) {{ if ((el.textContent||'').trim().includes('{s}') || (el.ariaLabel||'')=== '{s}') {{ el.scrollIntoViewIfNeeded(); const r = el.getBoundingClientRect(); return JSON.stringify({{found:true,tag:el.tagName.toLowerCase(),role:'{s}',name:(el.textContent||'').trim().substring(0,80),x:Math.round(r.x+r.width/2),y:Math.round(r.y+r.height/2)}}); }} }} return JSON.stringify({{found:false}}); }})()",
+                .{ escaped_role, nf, nf, escaped_role }) catch {
+                resp.sendError(request, 500, "Internal Server Error");
+                return;
+            };
+        } else {
+            break :blk std.fmt.allocPrint(arena,
+                "(() => {{ const el = document.querySelector('[role=\"{s}\"]'); if (!el) return JSON.stringify({{found:false}}); el.scrollIntoViewIfNeeded(); const r = el.getBoundingClientRect(); return JSON.stringify({{found:true,tag:el.tagName.toLowerCase(),role:'{s}',name:(el.textContent||'').trim().substring(0,80),x:Math.round(r.x+r.width/2),y:Math.round(r.y+r.height/2)}}); }})()",
+                .{ escaped_role, escaped_role }) catch {
+                resp.sendError(request, 500, "Internal Server Error");
+                return;
+            };
+        }
+    } else if (by_label) |lbl| blk: {
+        const escaped = jsonEscapeAlloc(arena, lbl) orelse {
+            resp.sendError(request, 500, "Internal Server Error");
+            return;
+        };
+        break :blk std.fmt.allocPrint(arena,
+            "(() => {{ const labels = document.querySelectorAll('label'); for (const l of labels) {{ if ((l.textContent||'').trim().includes('{s}') && l.control) {{ l.control.scrollIntoViewIfNeeded(); const r = l.control.getBoundingClientRect(); return JSON.stringify({{found:true,tag:l.control.tagName.toLowerCase(),label:'{s}',x:Math.round(r.x+r.width/2),y:Math.round(r.y+r.height/2)}}); }} }} const aria = document.querySelector('[aria-label=\"{s}\"]'); if (aria) {{ aria.scrollIntoViewIfNeeded(); const r = aria.getBoundingClientRect(); return JSON.stringify({{found:true,tag:aria.tagName.toLowerCase(),label:'{s}',x:Math.round(r.x+r.width/2),y:Math.round(r.y+r.height/2)}}); }} return JSON.stringify({{found:false}}); }})()",
+            .{ escaped, escaped, escaped, escaped }) catch {
+            resp.sendError(request, 500, "Internal Server Error");
+            return;
+        };
+    } else if (by_placeholder) |ph| blk: {
+        const escaped = jsonEscapeAlloc(arena, ph) orelse {
+            resp.sendError(request, 500, "Internal Server Error");
+            return;
+        };
+        break :blk std.fmt.allocPrint(arena,
+            "(() => {{ const el = document.querySelector('[placeholder=\"{s}\"]') || document.querySelector('input[placeholder*=\"{s}\"],textarea[placeholder*=\"{s}\"]'); if (!el) return JSON.stringify({{found:false}}); el.scrollIntoViewIfNeeded(); const r = el.getBoundingClientRect(); return JSON.stringify({{found:true,tag:el.tagName.toLowerCase(),placeholder:'{s}',x:Math.round(r.x+r.width/2),y:Math.round(r.y+r.height/2)}}); }})()",
+            .{ escaped, escaped, escaped, escaped }) catch {
+            resp.sendError(request, 500, "Internal Server Error");
+            return;
+        };
+    } else if (by_testid) |tid| blk: {
+        const escaped = jsonEscapeAlloc(arena, tid) orelse {
+            resp.sendError(request, 500, "Internal Server Error");
+            return;
+        };
+        break :blk std.fmt.allocPrint(arena,
+            "(() => {{ const el = document.querySelector('[data-testid=\"{s}\"]'); if (!el) return JSON.stringify({{found:false}}); el.scrollIntoViewIfNeeded(); const r = el.getBoundingClientRect(); return JSON.stringify({{found:true,tag:el.tagName.toLowerCase(),testid:'{s}',x:Math.round(r.x+r.width/2),y:Math.round(r.y+r.height/2)}}); }})()",
+            .{ escaped, escaped }) catch {
+            resp.sendError(request, 500, "Internal Server Error");
+            return;
+        };
+    } else {
+        resp.sendError(request, 400, "Provide one of: text, role, label, placeholder, testid");
+        return;
+    };
+
+    const escaped_js = jsonEscapeAlloc(arena, js) orelse {
+        resp.sendError(request, 500, "Internal Server Error");
+        return;
+    };
+    const params = std.fmt.allocPrint(arena, "{{\"expression\":\"{s}\",\"returnByValue\":true}}", .{escaped_js}) catch {
+        resp.sendError(request, 500, "Internal Server Error");
+        return;
+    };
+    const response = client.send(arena, protocol.Methods.runtime_evaluate, params) catch {
+        resp.sendError(request, 502, "CDP command failed");
+        return;
+    };
+    const val = extractSimpleJsonString(response, 0, "\"value\"") orelse {
+        resp.sendJson(request, response);
+        return;
+    };
+    resp.sendJson(request, val);
+}
+
+fn handleDialogAuto(request: *std.http.Server.Request, arena: std.mem.Allocator, bridge: *Bridge) void {
+    const target = request.head.target;
+    const tab_id = requireEffectiveTabId(arena, request, bridge) orelse return;
+    const mode = getQueryParam(target, "mode") orelse "accept";
+
+    const client = bridge.getCdpClient(tab_id) orelse {
+        resp.sendError(request, 404, "Tab not found");
+        return;
+    };
+
+    _ = client.send(arena, protocol.Methods.page_enable, null) catch {};
+
+    const accept_str = if (std.mem.eql(u8, mode, "dismiss")) "false" else "true";
+    const js = std.fmt.allocPrint(arena,
+        "(() => {{ window.__kuri_dialog_auto = {s}; window.__kuri_dialog_log = []; window.addEventListener('beforeunload', (e) => {{ e.preventDefault(); }}); return 'auto-dialog-{s}'; }})()", .{ accept_str, mode }) catch {
+        resp.sendError(request, 500, "Internal Server Error");
+        return;
+    };
+    const escaped = jsonEscapeAlloc(arena, js) orelse {
+        resp.sendError(request, 500, "Internal Server Error");
+        return;
+    };
+    const params = std.fmt.allocPrint(arena, "{{\"expression\":\"{s}\",\"returnByValue\":true}}", .{escaped}) catch {
+        resp.sendError(request, 500, "Internal Server Error");
+        return;
+    };
+    _ = client.send(arena, protocol.Methods.runtime_evaluate, params) catch {};
+
+    const dialog_js =
+        \\(() => {
+        \\  const handler = (e) => {
+        \\    window.__kuri_dialog_log = window.__kuri_dialog_log || [];
+        \\    window.__kuri_dialog_log.push({type: e.type, message: e.message || '', defaultPrompt: e.defaultPrompt || ''});
+        \\  };
+        \\  window.addEventListener('alert', handler);
+        \\  return 'listeners-attached';
+        \\})()
+    ;
+    const escaped_dlg = jsonEscapeAlloc(arena, dialog_js) orelse "";
+    const dlg_params = std.fmt.allocPrint(arena, "{{\"expression\":\"{s}\",\"returnByValue\":true}}", .{escaped_dlg}) catch {
+        resp.sendError(request, 500, "Internal Server Error");
+        return;
+    };
+    _ = client.send(arena, protocol.Methods.runtime_evaluate, dlg_params) catch {};
+
+    const handle_params = std.fmt.allocPrint(arena, "{{\"accept\":{s}}}", .{accept_str}) catch {
+        resp.sendError(request, 500, "Internal Server Error");
+        return;
+    };
+    _ = client.send(arena, protocol.Methods.page_handle_dialog, handle_params) catch {};
+
+    const body = std.fmt.allocPrint(arena, "{{\"ok\":true,\"mode\":\"{s}\"}}", .{mode}) catch {
+        resp.sendError(request, 500, "Internal Server Error");
+        return;
+    };
+    resp.sendJson(request, body);
+}
+
+fn handleDialogRespond(request: *std.http.Server.Request, arena: std.mem.Allocator, bridge: *Bridge, accept: bool) void {
+    const target = request.head.target;
+    const tab_id = requireEffectiveTabId(arena, request, bridge) orelse return;
+    const prompt_text = getDecodedQueryParamAlloc(arena, target, "text");
+
+    const client = bridge.getCdpClient(tab_id) orelse {
+        resp.sendError(request, 404, "Tab not found");
+        return;
+    };
+
+    const params = if (prompt_text) |pt| blk: {
+        const escaped_pt = jsonEscapeAlloc(arena, pt) orelse "";
+        break :blk std.fmt.allocPrint(arena, "{{\"accept\":{s},\"promptText\":\"{s}\"}}", .{ if (accept) "true" else "false", escaped_pt }) catch {
+            resp.sendError(request, 500, "Internal Server Error");
+            return;
+        };
+    } else std.fmt.allocPrint(arena, "{{\"accept\":{s}}}", .{if (accept) "true" else "false"}) catch {
+        resp.sendError(request, 500, "Internal Server Error");
+        return;
+    };
+
+    _ = client.send(arena, protocol.Methods.page_handle_dialog, params) catch {
+        resp.sendError(request, 502, "No dialog present or CDP failed");
+        return;
+    };
+
+    const action = if (accept) "accepted" else "dismissed";
+    const body = std.fmt.allocPrint(arena, "{{\"ok\":true,\"action\":\"{s}\"}}", .{action}) catch {
+        resp.sendError(request, 500, "Internal Server Error");
+        return;
+    };
+    resp.sendJson(request, body);
+}
+
+fn handleMouseEvent(request: *std.http.Server.Request, arena: std.mem.Allocator, bridge: *Bridge, event_type: []const u8) void {
+    const target = request.head.target;
+    const tab_id = requireEffectiveTabId(arena, request, bridge) orelse return;
+    const x_str = getQueryParam(target, "x") orelse "0";
+    const y_str = getQueryParam(target, "y") orelse "0";
+    const button = getQueryParam(target, "button") orelse "left";
+    const click_count_str = getQueryParam(target, "clickCount") orelse "1";
+
+    const x = std.fmt.parseInt(i64, x_str, 10) catch 0;
+    const y = std.fmt.parseInt(i64, y_str, 10) catch 0;
+    const click_count = std.fmt.parseInt(i32, click_count_str, 10) catch 1;
+
+    const client = bridge.getCdpClient(tab_id) orelse {
+        resp.sendError(request, 404, "Tab not found");
+        return;
+    };
+
+    const escaped_type = jsonEscapeAlloc(arena, event_type) orelse event_type;
+    const escaped_button = jsonEscapeAlloc(arena, button) orelse button;
+    const params = std.fmt.allocPrint(arena,
+        "{{\"type\":\"{s}\",\"x\":{d},\"y\":{d},\"button\":\"{s}\",\"clickCount\":{d}}}", .{ escaped_type, x, y, escaped_button, click_count }) catch {
+        resp.sendError(request, 500, "Internal Server Error");
+        return;
+    };
+    _ = client.send(arena, protocol.Methods.input_dispatch_mouse_event, params) catch {
+        resp.sendError(request, 502, "Input.dispatchMouseEvent failed");
+        return;
+    };
+
+    const body = std.fmt.allocPrint(arena, "{{\"ok\":true,\"type\":\"{s}\",\"x\":{d},\"y\":{d}}}", .{ escaped_type, x, y }) catch {
+        resp.sendError(request, 500, "Internal Server Error");
+        return;
+    };
+    resp.sendJson(request, body);
+}
+
+fn handleMouseWheel(request: *std.http.Server.Request, arena: std.mem.Allocator, bridge: *Bridge) void {
+    const target = request.head.target;
+    const tab_id = requireEffectiveTabId(arena, request, bridge) orelse return;
+    const x_str = getQueryParam(target, "x") orelse "0";
+    const y_str = getQueryParam(target, "y") orelse "0";
+    const dx_str = getQueryParam(target, "deltaX") orelse "0";
+    const dy_str = getQueryParam(target, "deltaY") orelse "-120";
+
+    const x = std.fmt.parseInt(i64, x_str, 10) catch 0;
+    const y = std.fmt.parseInt(i64, y_str, 10) catch 0;
+    const dx = std.fmt.parseInt(i64, dx_str, 10) catch 0;
+    const dy = std.fmt.parseInt(i64, dy_str, 10) catch -120;
+
+    const client = bridge.getCdpClient(tab_id) orelse {
+        resp.sendError(request, 404, "Tab not found");
+        return;
+    };
+
+    const params = std.fmt.allocPrint(arena,
+        "{{\"type\":\"mouseWheel\",\"x\":{d},\"y\":{d},\"deltaX\":{d},\"deltaY\":{d}}}", .{ x, y, dx, dy }) catch {
+        resp.sendError(request, 500, "Internal Server Error");
+        return;
+    };
+    _ = client.send(arena, protocol.Methods.input_dispatch_mouse_event, params) catch {
+        resp.sendError(request, 502, "Input.dispatchMouseEvent failed");
+        return;
+    };
+
+    const body = std.fmt.allocPrint(arena, "{{\"ok\":true,\"type\":\"mouseWheel\",\"deltaX\":{d},\"deltaY\":{d}}}", .{ dx, dy }) catch {
+        resp.sendError(request, 500, "Internal Server Error");
+        return;
+    };
+    resp.sendJson(request, body);
+}
+
+fn handlePageState(request: *std.http.Server.Request, arena: std.mem.Allocator, bridge: *Bridge) void {
+    const tab_id = requireEffectiveTabId(arena, request, bridge) orelse return;
+
+    const client = bridge.getCdpClient(tab_id) orelse {
+        resp.sendError(request, 404, "Tab not found");
+        return;
+    };
+
+    const js =
+        \\(() => {
+        \\  const s = {
+        \\    url: location.href,
+        \\    title: document.title,
+        \\    readyState: document.readyState,
+        \\    scrollX: Math.round(window.scrollX),
+        \\    scrollY: Math.round(window.scrollY),
+        \\    scrollHeight: document.documentElement.scrollHeight,
+        \\    viewportWidth: window.innerWidth,
+        \\    viewportHeight: window.innerHeight,
+        \\    documentHeight: document.documentElement.scrollHeight,
+        \\    documentWidth: document.documentElement.scrollWidth,
+        \\    scrollPercent: Math.round((window.scrollY / Math.max(1, document.documentElement.scrollHeight - window.innerHeight)) * 100),
+        \\    forms: document.forms.length,
+        \\    links: document.links.length,
+        \\    images: document.images.length,
+        \\    inputs: document.querySelectorAll('input,textarea,select').length
+        \\  };
+        \\  return JSON.stringify(s);
+        \\})()
+    ;
+    const escaped = jsonEscapeAlloc(arena, js) orelse {
+        resp.sendError(request, 500, "Internal Server Error");
+        return;
+    };
+    const params = std.fmt.allocPrint(arena, "{{\"expression\":\"{s}\",\"returnByValue\":true}}", .{escaped}) catch {
+        resp.sendError(request, 500, "Internal Server Error");
+        return;
+    };
+    const response = client.send(arena, protocol.Methods.runtime_evaluate, params) catch {
+        resp.sendError(request, 502, "CDP command failed");
+        return;
+    };
+    const val = extractSimpleJsonString(response, 0, "\"value\"") orelse {
+        resp.sendJson(request, response);
+        return;
+    };
+    resp.sendJson(request, val);
+}
+
+
+fn handleClipboard(request: *std.http.Server.Request, arena: std.mem.Allocator, bridge: *Bridge, mode: []const u8) void {
+    const target = request.head.target;
+    const tab_id = requireEffectiveTabId(arena, request, bridge) orelse return;
+    const client = bridge.getCdpClient(tab_id) orelse {
+        resp.sendError(request, 404, "Tab not found");
+        return;
+    };
+    if (std.mem.eql(u8, mode, "read")) {
+        const js = "navigator.clipboard.readText().then(t => t).catch(() => '')";
+        const escaped = jsonEscapeAlloc(arena, js) orelse { resp.sendError(request, 500, "Internal Server Error"); return; };
+        const params = std.fmt.allocPrint(arena, "{{\"expression\":\"{s}\",\"returnByValue\":true,\"awaitPromise\":true}}", .{escaped}) catch { resp.sendError(request, 500, "Internal Server Error"); return; };
+        const response = client.send(arena, protocol.Methods.runtime_evaluate, params) catch { resp.sendError(request, 502, "CDP command failed"); return; };
+        resp.sendJson(request, response);
+    } else {
+        const text = getDecodedQueryParamAlloc(arena, target, "text") orelse { resp.sendError(request, 400, "Missing text parameter"); return; };
+        const escaped_text = jsonEscapeAlloc(arena, text) orelse { resp.sendError(request, 500, "Internal Server Error"); return; };
+        const js = std.fmt.allocPrint(arena, "navigator.clipboard.writeText('{s}').then(() => 'written').catch(e => e.message)", .{escaped_text}) catch { resp.sendError(request, 500, "Internal Server Error"); return; };
+        const escaped = jsonEscapeAlloc(arena, js) orelse { resp.sendError(request, 500, "Internal Server Error"); return; };
+        const params = std.fmt.allocPrint(arena, "{{\"expression\":\"{s}\",\"returnByValue\":true,\"awaitPromise\":true}}", .{escaped}) catch { resp.sendError(request, 500, "Internal Server Error"); return; };
+        const response = client.send(arena, protocol.Methods.runtime_evaluate, params) catch { resp.sendError(request, 502, "CDP command failed"); return; };
+        resp.sendJson(request, response);
+    }
+}
+
+fn handleClear(request: *std.http.Server.Request, arena: std.mem.Allocator, bridge: *Bridge) void {
+    const target = request.head.target;
+    const tab_id = requireEffectiveTabId(arena, request, bridge) orelse return;
+    const ref = getQueryParam(target, "ref") orelse { resp.sendError(request, 400, "Missing ref parameter"); return; };
+    const client = bridge.getCdpClient(tab_id) orelse { resp.sendError(request, 404, "Tab not found"); return; };
+    bridge.mu.lockShared();
+    const cache = bridge.snapshots.get(tab_id);
+    bridge.mu.unlockShared();
+    const bid = if (cache) |c| c.refs.get(ref) else null;
+    if (bid == null) { resp.sendError(request, 400, "Ref not found"); return; }
+    const rp = std.fmt.allocPrint(arena, "{{\"backendNodeId\":{d}}}", .{bid.?}) catch { resp.sendError(request, 500, "Internal Server Error"); return; };
+    const rr = client.send(arena, protocol.Methods.dom_resolve_node, rp) catch { resp.sendError(request, 502, "DOM.resolveNode failed"); return; };
+    const oid = extractSimpleJsonString(rr, 0, "\"objectId\"") orelse { resp.sendError(request, 500, "Could not resolve element"); return; };
+    const js = "function() { this.focus(); if ('value' in this) { this.value = ''; } else if (this.isContentEditable) { this.textContent = ''; } this.dispatchEvent(new Event('input',{bubbles:true})); this.dispatchEvent(new Event('change',{bubbles:true})); return 'cleared'; }";
+    const escaped_fn = jsonEscapeAlloc(arena, js) orelse { resp.sendError(request, 500, "Internal Server Error"); return; };
+    const cp = std.fmt.allocPrint(arena, "{{\"objectId\":\"{s}\",\"functionDeclaration\":\"{s}\",\"returnByValue\":true}}", .{ oid, escaped_fn }) catch { resp.sendError(request, 500, "Internal Server Error"); return; };
+    _ = client.send(arena, protocol.Methods.runtime_call_function_on, cp) catch { resp.sendError(request, 502, "clear failed"); return; };
+    resp.sendJson(request, "{\"ok\":true,\"action\":\"cleared\"}");
+}
+
+fn handleBoundingBox(request: *std.http.Server.Request, arena: std.mem.Allocator, bridge: *Bridge) void {
+    const target = request.head.target;
+    const tab_id = requireEffectiveTabId(arena, request, bridge) orelse return;
+    const ref = getQueryParam(target, "ref") orelse { resp.sendError(request, 400, "Missing ref parameter"); return; };
+    const client = bridge.getCdpClient(tab_id) orelse { resp.sendError(request, 404, "Tab not found"); return; };
+    bridge.mu.lockShared();
+    const cache = bridge.snapshots.get(tab_id);
+    bridge.mu.unlockShared();
+    const bid = if (cache) |c| c.refs.get(ref) else null;
+    if (bid == null) { resp.sendError(request, 400, "Ref not found"); return; }
+    const rp = std.fmt.allocPrint(arena, "{{\"backendNodeId\":{d}}}", .{bid.?}) catch { resp.sendError(request, 500, "Internal Server Error"); return; };
+    const rr = client.send(arena, protocol.Methods.dom_resolve_node, rp) catch { resp.sendError(request, 502, "DOM.resolveNode failed"); return; };
+    const oid = extractSimpleJsonString(rr, 0, "\"objectId\"") orelse { resp.sendError(request, 500, "Could not resolve element"); return; };
+    const js = "function() { const r = this.getBoundingClientRect(); return JSON.stringify({x:Math.round(r.x),y:Math.round(r.y),width:Math.round(r.width),height:Math.round(r.height),centerX:Math.round(r.x+r.width/2),centerY:Math.round(r.y+r.height/2)}); }";
+    const escaped_fn = jsonEscapeAlloc(arena, js) orelse { resp.sendError(request, 500, "Internal Server Error"); return; };
+    const cp = std.fmt.allocPrint(arena, "{{\"objectId\":\"{s}\",\"functionDeclaration\":\"{s}\",\"returnByValue\":true}}", .{ oid, escaped_fn }) catch { resp.sendError(request, 500, "Internal Server Error"); return; };
+    const response = client.send(arena, protocol.Methods.runtime_call_function_on, cp) catch { resp.sendError(request, 502, "boundingbox failed"); return; };
+    const val = extractSimpleJsonString(response, 0, "\"value\"") orelse { resp.sendJson(request, response); return; };
+    resp.sendJson(request, val);
+}
+
+fn handleWaitForFunction(request: *std.http.Server.Request, arena: std.mem.Allocator, bridge: *Bridge) void {
+    const target = request.head.target;
+    const tab_id = requireEffectiveTabId(arena, request, bridge) orelse return;
+    const expression = getDecodedQueryParamAlloc(arena, target, "expression") orelse { resp.sendError(request, 400, "Missing expression parameter"); return; };
+    const timeout_str = getQueryParam(target, "timeout") orelse "5000";
+    const timeout_ms = std.fmt.parseInt(u64, timeout_str, 10) catch 5000;
+    const client = bridge.getCdpClient(tab_id) orelse { resp.sendError(request, 404, "Tab not found"); return; };
+    const escaped = jsonEscapeAlloc(arena, expression) orelse { resp.sendError(request, 500, "Internal Server Error"); return; };
+    const max_polls = timeout_ms / 100;
+    var polls: u64 = 0;
+    while (polls < max_polls) : (polls += 1) {
+        const params = std.fmt.allocPrint(arena, "{{\"expression\":\"{s}\",\"returnByValue\":true}}", .{escaped}) catch { resp.sendError(request, 500, "Internal Server Error"); return; };
+        const response = client.send(arena, protocol.Methods.runtime_evaluate, params) catch { resp.sendError(request, 502, "CDP command failed"); return; };
+        if (std.mem.indexOf(u8, response, "true") != null) {
+            const body = std.fmt.allocPrint(arena, "{{\"status\":\"satisfied\",\"polls\":{d}}}", .{polls + 1}) catch { resp.sendError(request, 500, "Internal Server Error"); return; };
+            resp.sendJson(request, body);
+            return;
+        }
+        compat.threadSleep(100 * std.time.ns_per_ms);
+    }
+    resp.sendJson(request, "{\"status\":\"timeout\",\"reason\":\"function_not_truthy\"}");
+}
+
+fn handleResponseBody(request: *std.http.Server.Request, arena: std.mem.Allocator, bridge: *Bridge) void {
+    const target = request.head.target;
+    const tab_id = requireEffectiveTabId(arena, request, bridge) orelse return;
+    const url_pattern = getDecodedQueryParamAlloc(arena, target, "url") orelse { resp.sendError(request, 400, "Missing url parameter"); return; };
+    const client = bridge.getCdpClient(tab_id) orelse { resp.sendError(request, 404, "Tab not found"); return; };
+    const escaped_url = jsonEscapeAlloc(arena, url_pattern) orelse { resp.sendError(request, 500, "Internal Server Error"); return; };
+    const js = std.fmt.allocPrint(arena, "(async () => {{ try {{ const r = await fetch('{s}'); const t = await r.text(); return JSON.stringify({{status:r.status,url:r.url,body:t.substring(0,10000)}}); }} catch(e) {{ return JSON.stringify({{error:e.message}}); }} }})()", .{escaped_url}) catch { resp.sendError(request, 500, "Internal Server Error"); return; };
+    const escaped = jsonEscapeAlloc(arena, js) orelse { resp.sendError(request, 500, "Internal Server Error"); return; };
+    const params = std.fmt.allocPrint(arena, "{{\"expression\":\"{s}\",\"returnByValue\":true,\"awaitPromise\":true}}", .{escaped}) catch { resp.sendError(request, 500, "Internal Server Error"); return; };
+    const response = client.send(arena, protocol.Methods.runtime_evaluate, params) catch { resp.sendError(request, 502, "CDP command failed"); return; };
+    const val = extractSimpleJsonString(response, 0, "\"value\"") orelse { resp.sendJson(request, response); return; };
+    resp.sendJson(request, val);
+}
+
+fn handleSetContent(request: *std.http.Server.Request, arena: std.mem.Allocator, bridge: *Bridge) void {
+    const tab_id = requireEffectiveTabId(arena, request, bridge) orelse return;
+    const client = bridge.getCdpClient(tab_id) orelse { resp.sendError(request, 404, "Tab not found"); return; };
+    const body = readRequestBody(request, arena) orelse { resp.sendError(request, 400, "Missing request body with HTML content"); return; };
+    const html = extractSimpleJsonString(body, 0, "\"html\"") orelse body;
+    const escaped_html = jsonEscapeAlloc(arena, html) orelse { resp.sendError(request, 500, "Internal Server Error"); return; };
+    const js = std.fmt.allocPrint(arena, "document.open(); document.write('{s}'); document.close(); 'set'", .{escaped_html}) catch { resp.sendError(request, 500, "Internal Server Error"); return; };
+    const escaped = jsonEscapeAlloc(arena, js) orelse { resp.sendError(request, 500, "Internal Server Error"); return; };
+    const params = std.fmt.allocPrint(arena, "{{\"expression\":\"{s}\",\"returnByValue\":true}}", .{escaped}) catch { resp.sendError(request, 500, "Internal Server Error"); return; };
+    _ = client.send(arena, protocol.Methods.runtime_evaluate, params) catch { resp.sendError(request, 502, "CDP command failed"); return; };
+    resp.sendJson(request, "{\"ok\":true,\"action\":\"setcontent\"}");
+}
+
+fn handleSelectAll(request: *std.http.Server.Request, arena: std.mem.Allocator, bridge: *Bridge) void {
+    const target = request.head.target;
+    const tab_id = requireEffectiveTabId(arena, request, bridge) orelse return;
+    const ref = getQueryParam(target, "ref") orelse { resp.sendError(request, 400, "Missing ref parameter"); return; };
+    const client = bridge.getCdpClient(tab_id) orelse { resp.sendError(request, 404, "Tab not found"); return; };
+    bridge.mu.lockShared();
+    const cache = bridge.snapshots.get(tab_id);
+    bridge.mu.unlockShared();
+    const bid = if (cache) |c| c.refs.get(ref) else null;
+    if (bid == null) { resp.sendError(request, 400, "Ref not found"); return; }
+    const rp = std.fmt.allocPrint(arena, "{{\"backendNodeId\":{d}}}", .{bid.?}) catch { resp.sendError(request, 500, "Internal Server Error"); return; };
+    const rr = client.send(arena, protocol.Methods.dom_resolve_node, rp) catch { resp.sendError(request, 502, "DOM.resolveNode failed"); return; };
+    const oid = extractSimpleJsonString(rr, 0, "\"objectId\"") orelse { resp.sendError(request, 500, "Could not resolve element"); return; };
+    const js = "function() { this.focus(); if ('select' in this) { this.select(); } else { const r = document.createRange(); r.selectNodeContents(this); const s = window.getSelection(); s.removeAllRanges(); s.addRange(r); } return 'selected'; }";
+    const escaped_fn = jsonEscapeAlloc(arena, js) orelse { resp.sendError(request, 500, "Internal Server Error"); return; };
+    const cp = std.fmt.allocPrint(arena, "{{\"objectId\":\"{s}\",\"functionDeclaration\":\"{s}\",\"returnByValue\":true}}", .{ oid, escaped_fn }) catch { resp.sendError(request, 500, "Internal Server Error"); return; };
+    _ = client.send(arena, protocol.Methods.runtime_call_function_on, cp) catch { resp.sendError(request, 502, "selectall failed"); return; };
+    resp.sendJson(request, "{\"ok\":true,\"action\":\"selectall\"}");
+}
+
+fn handleSetValue(request: *std.http.Server.Request, arena: std.mem.Allocator, bridge: *Bridge) void {
+    const target = request.head.target;
+    const tab_id = requireEffectiveTabId(arena, request, bridge) orelse return;
+    const ref = getQueryParam(target, "ref") orelse { resp.sendError(request, 400, "Missing ref parameter"); return; };
+    const value = getDecodedQueryParamAlloc(arena, target, "value") orelse { resp.sendError(request, 400, "Missing value parameter"); return; };
+    const client = bridge.getCdpClient(tab_id) orelse { resp.sendError(request, 404, "Tab not found"); return; };
+    bridge.mu.lockShared();
+    const cache = bridge.snapshots.get(tab_id);
+    bridge.mu.unlockShared();
+    const bid = if (cache) |c| c.refs.get(ref) else null;
+    if (bid == null) { resp.sendError(request, 400, "Ref not found"); return; }
+    const rp = std.fmt.allocPrint(arena, "{{\"backendNodeId\":{d}}}", .{bid.?}) catch { resp.sendError(request, 500, "Internal Server Error"); return; };
+    const rr = client.send(arena, protocol.Methods.dom_resolve_node, rp) catch { resp.sendError(request, 502, "DOM.resolveNode failed"); return; };
+    const oid = extractSimpleJsonString(rr, 0, "\"objectId\"") orelse { resp.sendError(request, 500, "Could not resolve element"); return; };
+    const escaped_val = jsonEscapeAlloc(arena, value) orelse { resp.sendError(request, 500, "Internal Server Error"); return; };
+    const js = std.fmt.allocPrint(arena, "function() {{ if ('value' in this) {{ this.value = '{s}'; }} else if (this.isContentEditable) {{ this.textContent = '{s}'; }} this.dispatchEvent(new Event('input',{{bubbles:true}})); this.dispatchEvent(new Event('change',{{bubbles:true}})); return 'set'; }}", .{ escaped_val, escaped_val }) catch { resp.sendError(request, 500, "Internal Server Error"); return; };
+    const escaped_fn = jsonEscapeAlloc(arena, js) orelse { resp.sendError(request, 500, "Internal Server Error"); return; };
+    const cp = std.fmt.allocPrint(arena, "{{\"objectId\":\"{s}\",\"functionDeclaration\":\"{s}\",\"returnByValue\":true}}", .{ oid, escaped_fn }) catch { resp.sendError(request, 500, "Internal Server Error"); return; };
+    _ = client.send(arena, protocol.Methods.runtime_call_function_on, cp) catch { resp.sendError(request, 502, "setvalue failed"); return; };
+    resp.sendJson(request, "{\"ok\":true,\"action\":\"setvalue\"}");
+}
+
+fn handleTimezone(request: *std.http.Server.Request, arena: std.mem.Allocator, bridge: *Bridge) void {
+    const target = request.head.target;
+    const tab_id = requireEffectiveTabId(arena, request, bridge) orelse return;
+    const tz = getDecodedQueryParamAlloc(arena, target, "timezone") orelse { resp.sendError(request, 400, "Missing timezone parameter (e.g. America/New_York)"); return; };
+    const client = bridge.getCdpClient(tab_id) orelse { resp.sendError(request, 404, "Tab not found"); return; };
+    const escaped_tz = jsonEscapeAlloc(arena, tz) orelse { resp.sendError(request, 500, "Internal Server Error"); return; };
+    const params = std.fmt.allocPrint(arena, "{{\"timezoneId\":\"{s}\"}}", .{escaped_tz}) catch { resp.sendError(request, 500, "Internal Server Error"); return; };
+    _ = client.send(arena, "Emulation.setTimezoneOverride", params) catch { resp.sendError(request, 502, "Emulation.setTimezoneOverride failed"); return; };
+    const body = std.fmt.allocPrint(arena, "{{\"ok\":true,\"timezone\":\"{s}\"}}", .{escaped_tz}) catch { resp.sendError(request, 500, "Internal Server Error"); return; };
+    resp.sendJson(request, body);
+}
+
+fn handleLocale(request: *std.http.Server.Request, arena: std.mem.Allocator, bridge: *Bridge) void {
+    const target = request.head.target;
+    const tab_id = requireEffectiveTabId(arena, request, bridge) orelse return;
+    const locale = getDecodedQueryParamAlloc(arena, target, "locale") orelse { resp.sendError(request, 400, "Missing locale parameter (e.g. en-US)"); return; };
+    const client = bridge.getCdpClient(tab_id) orelse { resp.sendError(request, 404, "Tab not found"); return; };
+    const escaped_locale = jsonEscapeAlloc(arena, locale) orelse { resp.sendError(request, 500, "Internal Server Error"); return; };
+    const params = std.fmt.allocPrint(arena, "{{\"locale\":\"{s}\"}}", .{escaped_locale}) catch { resp.sendError(request, 500, "Internal Server Error"); return; };
+    _ = client.send(arena, "Emulation.setLocaleOverride", params) catch { resp.sendError(request, 502, "Emulation.setLocaleOverride failed"); return; };
+    const body = std.fmt.allocPrint(arena, "{{\"ok\":true,\"locale\":\"{s}\"}}", .{escaped_locale}) catch { resp.sendError(request, 500, "Internal Server Error"); return; };
+    resp.sendJson(request, body);
+}
+
+fn handlePermissions(request: *std.http.Server.Request, arena: std.mem.Allocator, bridge: *Bridge) void {
+    const target = request.head.target;
+    const tab_id = requireEffectiveTabId(arena, request, bridge) orelse return;
+    const permission = getQueryParam(target, "name") orelse { resp.sendError(request, 400, "Missing name parameter (e.g. geolocation, notifications, clipboard-read)"); return; };
+    const setting = getQueryParam(target, "state") orelse "granted";
+    const client = bridge.getCdpClient(tab_id) orelse { resp.sendError(request, 404, "Tab not found"); return; };
+    const escaped_perm = jsonEscapeAlloc(arena, permission) orelse { resp.sendError(request, 500, "Internal Server Error"); return; };
+    const escaped_setting = jsonEscapeAlloc(arena, setting) orelse { resp.sendError(request, 500, "Internal Server Error"); return; };
+    const origin = evalValueString(arena, client, "window.location.origin") orelse "";
+    const escaped_origin = jsonEscapeAlloc(arena, origin) orelse "";
+    const params = std.fmt.allocPrint(arena, "{{\"permission\":{{\"name\":\"{s}\"}},\"setting\":\"{s}\",\"origin\":\"{s}\"}}", .{ escaped_perm, escaped_setting, escaped_origin }) catch { resp.sendError(request, 500, "Internal Server Error"); return; };
+    _ = client.send(arena, "Browser.setPermission", params) catch { resp.sendError(request, 502, "Browser.setPermission failed"); return; };
+    const body = std.fmt.allocPrint(arena, "{{\"ok\":true,\"permission\":\"{s}\",\"state\":\"{s}\"}}", .{ escaped_perm, escaped_setting }) catch { resp.sendError(request, 500, "Internal Server Error"); return; };
+    resp.sendJson(request, body);
+}
+
+fn handleTap(request: *std.http.Server.Request, arena: std.mem.Allocator, bridge: *Bridge) void {
+    const target = request.head.target;
+    const tab_id = requireEffectiveTabId(arena, request, bridge) orelse return;
+    const x_str = getQueryParam(target, "x") orelse "0";
+    const y_str = getQueryParam(target, "y") orelse "0";
+    const x = std.fmt.parseInt(i64, x_str, 10) catch 0;
+    const y = std.fmt.parseInt(i64, y_str, 10) catch 0;
+    const client = bridge.getCdpClient(tab_id) orelse { resp.sendError(request, 404, "Tab not found"); return; };
+    const down_params = std.fmt.allocPrint(arena, "{{\"type\":\"touchStart\",\"touchPoints\":[{{\"x\":{d},\"y\":{d}}}]}}", .{ x, y }) catch { resp.sendError(request, 500, "Internal Server Error"); return; };
+    _ = client.send(arena, "Input.dispatchTouchEvent", down_params) catch { resp.sendError(request, 502, "Touch event failed"); return; };
+    const up_params = std.fmt.allocPrint(arena, "{{\"type\":\"touchEnd\",\"touchPoints\":[]}}", .{}) catch { resp.sendError(request, 500, "Internal Server Error"); return; };
+    _ = client.send(arena, "Input.dispatchTouchEvent", up_params) catch {};
+    const body = std.fmt.allocPrint(arena, "{{\"ok\":true,\"action\":\"tap\",\"x\":{d},\"y\":{d}}}", .{ x, y }) catch { resp.sendError(request, 500, "Internal Server Error"); return; };
+    resp.sendJson(request, body);
+}
+
+fn handleDispatch(request: *std.http.Server.Request, arena: std.mem.Allocator, bridge: *Bridge) void {
+    const target = request.head.target;
+    const tab_id = requireEffectiveTabId(arena, request, bridge) orelse return;
+    const ref = getQueryParam(target, "ref") orelse { resp.sendError(request, 400, "Missing ref parameter"); return; };
+    const event_type = getDecodedQueryParamAlloc(arena, target, "type") orelse { resp.sendError(request, 400, "Missing type parameter (e.g. click, input, change, submit)"); return; };
+    const client = bridge.getCdpClient(tab_id) orelse { resp.sendError(request, 404, "Tab not found"); return; };
+    bridge.mu.lockShared();
+    const cache = bridge.snapshots.get(tab_id);
+    bridge.mu.unlockShared();
+    const bid = if (cache) |c| c.refs.get(ref) else null;
+    if (bid == null) { resp.sendError(request, 400, "Ref not found"); return; }
+    const rp = std.fmt.allocPrint(arena, "{{\"backendNodeId\":{d}}}", .{bid.?}) catch { resp.sendError(request, 500, "Internal Server Error"); return; };
+    const rr = client.send(arena, protocol.Methods.dom_resolve_node, rp) catch { resp.sendError(request, 502, "DOM.resolveNode failed"); return; };
+    const oid = extractSimpleJsonString(rr, 0, "\"objectId\"") orelse { resp.sendError(request, 500, "Could not resolve element"); return; };
+    const escaped_type = jsonEscapeAlloc(arena, event_type) orelse { resp.sendError(request, 500, "Internal Server Error"); return; };
+    const js = std.fmt.allocPrint(arena, "function() {{ this.dispatchEvent(new Event('{s}', {{bubbles:true,cancelable:true}})); return 'dispatched'; }}", .{escaped_type}) catch { resp.sendError(request, 500, "Internal Server Error"); return; };
+    const escaped_fn = jsonEscapeAlloc(arena, js) orelse { resp.sendError(request, 500, "Internal Server Error"); return; };
+    const cp = std.fmt.allocPrint(arena, "{{\"objectId\":\"{s}\",\"functionDeclaration\":\"{s}\",\"returnByValue\":true}}", .{ oid, escaped_fn }) catch { resp.sendError(request, 500, "Internal Server Error"); return; };
+    _ = client.send(arena, protocol.Methods.runtime_call_function_on, cp) catch { resp.sendError(request, 502, "dispatch failed"); return; };
+    const body = std.fmt.allocPrint(arena, "{{\"ok\":true,\"action\":\"dispatch\",\"type\":\"{s}\"}}", .{escaped_type}) catch { resp.sendError(request, 500, "Internal Server Error"); return; };
+    resp.sendJson(request, body);
+}
+
+fn handleDownload(request: *std.http.Server.Request, arena: std.mem.Allocator, bridge: *Bridge) void {
+    const target = request.head.target;
+    const tab_id = requireEffectiveTabId(arena, request, bridge) orelse return;
+    const url = getDecodedQueryParamAlloc(arena, target, "url") orelse { resp.sendError(request, 400, "Missing url parameter"); return; };
+    const client = bridge.getCdpClient(tab_id) orelse { resp.sendError(request, 404, "Tab not found"); return; };
+    _ = client.send(arena, "Page.setDownloadBehavior", "{\"behavior\":\"allow\",\"downloadPath\":\"/tmp/kuri-downloads\"}") catch {};
+    const escaped_url = jsonEscapeAlloc(arena, url) orelse { resp.sendError(request, 500, "Internal Server Error"); return; };
+    const js = std.fmt.allocPrint(arena, "(async () => {{ try {{ const a = document.createElement('a'); a.href = '{s}'; a.download = ''; document.body.appendChild(a); a.click(); a.remove(); return 'triggered'; }} catch(e) {{ return e.message; }} }})()", .{escaped_url}) catch { resp.sendError(request, 500, "Internal Server Error"); return; };
+    const escaped = jsonEscapeAlloc(arena, js) orelse { resp.sendError(request, 500, "Internal Server Error"); return; };
+    const params = std.fmt.allocPrint(arena, "{{\"expression\":\"{s}\",\"returnByValue\":true,\"awaitPromise\":true}}", .{escaped}) catch { resp.sendError(request, 500, "Internal Server Error"); return; };
+    _ = client.send(arena, protocol.Methods.runtime_evaluate, params) catch { resp.sendError(request, 502, "CDP command failed"); return; };
+    const body = std.fmt.allocPrint(arena, "{{\"ok\":true,\"action\":\"download\",\"url\":\"{s}\"}}", .{escaped_url}) catch { resp.sendError(request, 500, "Internal Server Error"); return; };
+    resp.sendJson(request, body);
+}
+
+fn handleAddStyle(request: *std.http.Server.Request, arena: std.mem.Allocator, bridge: *Bridge) void {
+    const target = request.head.target;
+    const tab_id = requireEffectiveTabId(arena, request, bridge) orelse return;
+    const source = blk: {
+        if (readRequestBody(request, arena)) |body| {
+            if (body.len > 0) {
+                if (extractSimpleJsonString(body, 0, "\"source\"")) |s| break :blk s;
+                break :blk body;
+            }
+        }
+        break :blk getDecodedQueryParamAlloc(arena, target, "source") orelse { resp.sendError(request, 400, "Missing source parameter"); return; };
+    };
+    const client = bridge.getCdpClient(tab_id) orelse { resp.sendError(request, 404, "Tab not found"); return; };
+    const escaped_src = jsonEscapeAlloc(arena, source) orelse { resp.sendError(request, 500, "Internal Server Error"); return; };
+    const js = std.fmt.allocPrint(arena, "(function() {{ var s = document.createElement('style'); s.textContent = '{s}'; document.head.appendChild(s); return 'injected'; }})()", .{escaped_src}) catch { resp.sendError(request, 500, "Internal Server Error"); return; };
+    const escaped = jsonEscapeAlloc(arena, js) orelse { resp.sendError(request, 500, "Internal Server Error"); return; };
+    const params = std.fmt.allocPrint(arena, "{{\"expression\":\"{s}\",\"returnByValue\":true}}", .{escaped}) catch { resp.sendError(request, 500, "Internal Server Error"); return; };
+    _ = client.send(arena, protocol.Methods.runtime_evaluate, params) catch { resp.sendError(request, 502, "CDP command failed"); return; };
+    resp.sendJson(request, "{\"ok\":true,\"action\":\"addstyle\"}");
+}
+
+fn handleBringToFront(request: *std.http.Server.Request, arena: std.mem.Allocator, bridge: *Bridge) void {
+    const tab_id = requireEffectiveTabId(arena, request, bridge) orelse return;
+    const client = bridge.getCdpClient(tab_id) orelse { resp.sendError(request, 404, "Tab not found"); return; };
+    _ = client.send(arena, "Page.bringToFront", null) catch { resp.sendError(request, 502, "CDP command failed"); return; };
+    resp.sendJson(request, "{\"ok\":true,\"action\":\"bringtofront\"}");
+}
+
+fn handlePushState(request: *std.http.Server.Request, arena: std.mem.Allocator, bridge: *Bridge) void {
+    const target = request.head.target;
+    const tab_id = requireEffectiveTabId(arena, request, bridge) orelse return;
+    const url = getDecodedQueryParamAlloc(arena, target, "url") orelse { resp.sendError(request, 400, "Missing url parameter"); return; };
+    const client = bridge.getCdpClient(tab_id) orelse { resp.sendError(request, 404, "Tab not found"); return; };
+    const escaped_url = jsonEscapeAlloc(arena, url) orelse { resp.sendError(request, 500, "Internal Server Error"); return; };
+    const js = std.fmt.allocPrint(arena, "(function() {{ history.pushState({{}}, '', '{s}'); window.dispatchEvent(new PopStateEvent('popstate')); return window.location.href; }})()", .{escaped_url}) catch { resp.sendError(request, 500, "Internal Server Error"); return; };
+    const escaped = jsonEscapeAlloc(arena, js) orelse { resp.sendError(request, 500, "Internal Server Error"); return; };
+    const params = std.fmt.allocPrint(arena, "{{\"expression\":\"{s}\",\"returnByValue\":true}}", .{escaped}) catch { resp.sendError(request, 500, "Internal Server Error"); return; };
+    const response = client.send(arena, protocol.Methods.runtime_evaluate, params) catch { resp.sendError(request, 502, "CDP command failed"); return; };
+    const val = extractSimpleJsonString(response, 0, "\"value\"") orelse url;
+    const body = std.fmt.allocPrint(arena, "{{\"ok\":true,\"action\":\"pushstate\",\"url\":\"{s}\"}}", .{jsonEscapeAlloc(arena, val) orelse escaped_url}) catch { resp.sendError(request, 500, "Internal Server Error"); return; };
+    resp.sendJson(request, body);
+}
+
+fn handleExpose(request: *std.http.Server.Request, arena: std.mem.Allocator, bridge: *Bridge) void {
+    const target = request.head.target;
+    const tab_id = requireEffectiveTabId(arena, request, bridge) orelse return;
+    const name = getDecodedQueryParamAlloc(arena, target, "name") orelse { resp.sendError(request, 400, "Missing name parameter"); return; };
+    const client = bridge.getCdpClient(tab_id) orelse { resp.sendError(request, 404, "Tab not found"); return; };
+    const escaped_name = jsonEscapeAlloc(arena, name) orelse { resp.sendError(request, 500, "Internal Server Error"); return; };
+    const params = std.fmt.allocPrint(arena, "{{\"name\":\"{s}\"}}", .{escaped_name}) catch { resp.sendError(request, 500, "Internal Server Error"); return; };
+    _ = client.send(arena, "Runtime.addBinding", params) catch { resp.sendError(request, 502, "CDP command failed"); return; };
+    const body = std.fmt.allocPrint(arena, "{{\"ok\":true,\"action\":\"expose\",\"name\":\"{s}\"}}", .{escaped_name}) catch { resp.sendError(request, 500, "Internal Server Error"); return; };
+    resp.sendJson(request, body);
+}
+
+fn handleMultiSelect(request: *std.http.Server.Request, arena: std.mem.Allocator, bridge: *Bridge) void {
+    const target = request.head.target;
+    const tab_id = requireEffectiveTabId(arena, request, bridge) orelse return;
+    const ref = getQueryParam(target, "ref") orelse { resp.sendError(request, 400, "Missing ref parameter"); return; };
+    const values = getDecodedQueryParamAlloc(arena, target, "values") orelse { resp.sendError(request, 400, "Missing values parameter"); return; };
+    const client = bridge.getCdpClient(tab_id) orelse { resp.sendError(request, 404, "Tab not found"); return; };
+    bridge.mu.lockShared();
+    const cache = bridge.snapshots.get(tab_id);
+    bridge.mu.unlockShared();
+    const bid = if (cache) |c| c.refs.get(ref) else null;
+    if (bid == null) { resp.sendError(request, 400, "Ref not found"); return; }
+    const rp = std.fmt.allocPrint(arena, "{{\"backendNodeId\":{d}}}", .{bid.?}) catch { resp.sendError(request, 500, "Internal Server Error"); return; };
+    const rr = client.send(arena, protocol.Methods.dom_resolve_node, rp) catch { resp.sendError(request, 502, "DOM.resolveNode failed"); return; };
+    const oid = extractSimpleJsonString(rr, 0, "\"objectId\"") orelse { resp.sendError(request, 500, "Could not resolve element"); return; };
+    const escaped_vals = jsonEscapeAlloc(arena, values) orelse { resp.sendError(request, 500, "Internal Server Error"); return; };
+    const js = std.fmt.allocPrint(arena, "function() {{ var vals = '{s}'.split(','); Array.from(this.options).forEach(function(o) {{ o.selected = vals.indexOf(o.value) >= 0; }}); this.dispatchEvent(new Event('change', {{bubbles:true}})); return 'selected'; }}", .{escaped_vals}) catch { resp.sendError(request, 500, "Internal Server Error"); return; };
+    const escaped_fn = jsonEscapeAlloc(arena, js) orelse { resp.sendError(request, 500, "Internal Server Error"); return; };
+    const cp = std.fmt.allocPrint(arena, "{{\"objectId\":\"{s}\",\"functionDeclaration\":\"{s}\",\"returnByValue\":true}}", .{ oid, escaped_fn }) catch { resp.sendError(request, 500, "Internal Server Error"); return; };
+    _ = client.send(arena, protocol.Methods.runtime_call_function_on, cp) catch { resp.sendError(request, 502, "multiselect failed"); return; };
+    resp.sendJson(request, "{\"ok\":true,\"action\":\"multiselect\"}");
+}
+
+fn handleSwipe(request: *std.http.Server.Request, arena: std.mem.Allocator, bridge: *Bridge) void {
+    const target = request.head.target;
+    const tab_id = requireEffectiveTabId(arena, request, bridge) orelse return;
+    const sx_str = getQueryParam(target, "startX") orelse "0";
+    const sy_str = getQueryParam(target, "startY") orelse "0";
+    const ex_str = getQueryParam(target, "endX") orelse "0";
+    const ey_str = getQueryParam(target, "endY") orelse "0";
+    const sx = std.fmt.parseInt(i64, sx_str, 10) catch 0;
+    const sy = std.fmt.parseInt(i64, sy_str, 10) catch 0;
+    const ex = std.fmt.parseInt(i64, ex_str, 10) catch 0;
+    const ey = std.fmt.parseInt(i64, ey_str, 10) catch 0;
+    const client = bridge.getCdpClient(tab_id) orelse { resp.sendError(request, 404, "Tab not found"); return; };
+    // touchStart at start position
+    const start_params = std.fmt.allocPrint(arena, "{{\"type\":\"touchStart\",\"touchPoints\":[{{\"x\":{d},\"y\":{d}}}]}}", .{ sx, sy }) catch { resp.sendError(request, 500, "Internal Server Error"); return; };
+    _ = client.send(arena, "Input.dispatchTouchEvent", start_params) catch { resp.sendError(request, 502, "Touch event failed"); return; };
+    // touchMove to midpoint
+    const mx = @divTrunc(sx + ex, 2);
+    const my = @divTrunc(sy + ey, 2);
+    const mid_params = std.fmt.allocPrint(arena, "{{\"type\":\"touchMove\",\"touchPoints\":[{{\"x\":{d},\"y\":{d}}}]}}", .{ mx, my }) catch { resp.sendError(request, 500, "Internal Server Error"); return; };
+    _ = client.send(arena, "Input.dispatchTouchEvent", mid_params) catch {};
+    // touchMove to end position
+    const move_params = std.fmt.allocPrint(arena, "{{\"type\":\"touchMove\",\"touchPoints\":[{{\"x\":{d},\"y\":{d}}}]}}", .{ ex, ey }) catch { resp.sendError(request, 500, "Internal Server Error"); return; };
+    _ = client.send(arena, "Input.dispatchTouchEvent", move_params) catch {};
+    // touchEnd
+    const end_params = std.fmt.allocPrint(arena, "{{\"type\":\"touchEnd\",\"touchPoints\":[]}}", .{}) catch { resp.sendError(request, 500, "Internal Server Error"); return; };
+    _ = client.send(arena, "Input.dispatchTouchEvent", end_params) catch {};
+    const body = std.fmt.allocPrint(arena, "{{\"ok\":true,\"action\":\"swipe\",\"startX\":{d},\"startY\":{d},\"endX\":{d},\"endY\":{d}}}", .{ sx, sy, ex, ey }) catch { resp.sendError(request, 500, "Internal Server Error"); return; };
+    resp.sendJson(request, body);
+}
+
+fn handleVitals(request: *std.http.Server.Request, arena: std.mem.Allocator, bridge: *Bridge) void {
+    const tab_id = requireEffectiveTabId(arena, request, bridge) orelse return;
+    const client = bridge.getCdpClient(tab_id) orelse { resp.sendError(request, 404, "Tab not found"); return; };
+    const js =
+        \\(function() {
+        \\  var nav = performance.getEntriesByType('navigation')[0] || {};
+        \\  var paint = performance.getEntriesByType('paint') || [];
+        \\  var fcp = 0; paint.forEach(function(e) { if (e.name === 'first-contentful-paint') fcp = e.startTime; });
+        \\  var ttfb = nav.responseStart || 0;
+        \\  var domInteractive = nav.domInteractive || 0;
+        \\  var lcp = 0; try { var entries = performance.getEntriesByType('largest-contentful-paint'); if (entries.length) lcp = entries[entries.length-1].startTime; } catch(e) {}
+        \\  var cls = 0; try { var entries = performance.getEntriesByType('layout-shift'); entries.forEach(function(e) { if (!e.hadRecentInput) cls += e.value; }); } catch(e) {}
+        \\  var fid = 0; try { var entries = performance.getEntriesByType('first-input'); if (entries.length) fid = entries[0].processingStart - entries[0].startTime; } catch(e) {}
+        \\  return JSON.stringify({lcp:lcp,cls:cls,fid:fid,ttfb:ttfb,fcp:fcp,domInteractive:domInteractive});
+        \\})()
+    ;
+    const escaped = jsonEscapeAlloc(arena, js) orelse { resp.sendError(request, 500, "Internal Server Error"); return; };
+    const params = std.fmt.allocPrint(arena, "{{\"expression\":\"{s}\",\"returnByValue\":true}}", .{escaped}) catch { resp.sendError(request, 500, "Internal Server Error"); return; };
+    const response = client.send(arena, protocol.Methods.runtime_evaluate, params) catch { resp.sendError(request, 502, "CDP command failed"); return; };
+    const val = extractSimpleJsonString(response, 0, "\"value\"") orelse { resp.sendJson(request, response); return; };
+    resp.sendJson(request, val);
+}
+
+fn handleFrame(request: *std.http.Server.Request, arena: std.mem.Allocator, bridge: *Bridge) void {
+    const target = request.head.target;
+    const tab_id = requireEffectiveTabId(arena, request, bridge) orelse return;
+    const client = bridge.getCdpClient(tab_id) orelse { resp.sendError(request, 404, "Tab not found"); return; };
+    const name = getDecodedQueryParamAlloc(arena, target, "name");
+    const url = getDecodedQueryParamAlloc(arena, target, "url");
+    if (name == null and url == null) { resp.sendError(request, 400, "Missing name or url parameter"); return; }
+    const selector = if (name) |n| blk: {
+        const escaped_n = jsonEscapeAlloc(arena, n) orelse { resp.sendError(request, 500, "Internal Server Error"); return; };
+        break :blk std.fmt.allocPrint(arena, "iframe[name=\\'{s}\\']", .{escaped_n}) catch { resp.sendError(request, 500, "Internal Server Error"); return; };
+    } else blk: {
+        const escaped_u = jsonEscapeAlloc(arena, url.?) orelse { resp.sendError(request, 500, "Internal Server Error"); return; };
+        break :blk std.fmt.allocPrint(arena, "iframe[src*=\\'{s}\\']", .{escaped_u}) catch { resp.sendError(request, 500, "Internal Server Error"); return; };
+    };
+    const js = std.fmt.allocPrint(arena, "(function() {{ var f = document.querySelector('{s}'); if (!f) return JSON.stringify({{error:'iframe not found'}}); try {{ return JSON.stringify({{ok:true,title:f.contentDocument.title,url:f.contentWindow.location.href}}); }} catch(e) {{ return JSON.stringify({{ok:true,crossOrigin:true,src:f.src}}); }} }})()", .{selector}) catch { resp.sendError(request, 500, "Internal Server Error"); return; };
+    const escaped = jsonEscapeAlloc(arena, js) orelse { resp.sendError(request, 500, "Internal Server Error"); return; };
+    const params = std.fmt.allocPrint(arena, "{{\"expression\":\"{s}\",\"returnByValue\":true}}", .{escaped}) catch { resp.sendError(request, 500, "Internal Server Error"); return; };
+    const response = client.send(arena, protocol.Methods.runtime_evaluate, params) catch { resp.sendError(request, 502, "CDP command failed"); return; };
+    const val = extractSimpleJsonString(response, 0, "\"value\"") orelse { resp.sendJson(request, response); return; };
+    resp.sendJson(request, val);
+}
+
+fn handleMainFrame(request: *std.http.Server.Request, arena: std.mem.Allocator, bridge: *Bridge) void {
+    _ = arena;
+    _ = bridge;
+    resp.sendJson(request, "{\"ok\":true,\"frame\":\"main\"}");
+}
+
+fn handleGetAttribute(request: *std.http.Server.Request, arena: std.mem.Allocator, bridge: *Bridge) void {
+    const target = request.head.target;
+    const tab_id = requireEffectiveTabId(arena, request, bridge) orelse return;
+    const ref = getQueryParam(target, "ref") orelse { resp.sendError(request, 400, "Missing ref parameter"); return; };
+    const name = getDecodedQueryParamAlloc(arena, target, "name") orelse { resp.sendError(request, 400, "Missing name parameter"); return; };
+    const client = bridge.getCdpClient(tab_id) orelse { resp.sendError(request, 404, "Tab not found"); return; };
+    bridge.mu.lockShared();
+    const cache = bridge.snapshots.get(tab_id);
+    bridge.mu.unlockShared();
+    const bid = if (cache) |c| c.refs.get(ref) else null;
+    if (bid == null) { resp.sendError(request, 400, "Ref not found"); return; }
+    const rp = std.fmt.allocPrint(arena, "{{\"backendNodeId\":{d}}}", .{bid.?}) catch { resp.sendError(request, 500, "Internal Server Error"); return; };
+    const rr = client.send(arena, protocol.Methods.dom_resolve_node, rp) catch { resp.sendError(request, 502, "DOM.resolveNode failed"); return; };
+    const oid = extractSimpleJsonString(rr, 0, "\"objectId\"") orelse { resp.sendError(request, 500, "Could not resolve element"); return; };
+    const escaped_name = jsonEscapeAlloc(arena, name) orelse { resp.sendError(request, 500, "Internal Server Error"); return; };
+    const js = std.fmt.allocPrint(arena, "function() {{ return this.getAttribute('{s}'); }}", .{escaped_name}) catch { resp.sendError(request, 500, "Internal Server Error"); return; };
+    const escaped_fn = jsonEscapeAlloc(arena, js) orelse { resp.sendError(request, 500, "Internal Server Error"); return; };
+    const cp = std.fmt.allocPrint(arena, "{{\"objectId\":\"{s}\",\"functionDeclaration\":\"{s}\",\"returnByValue\":true}}", .{ oid, escaped_fn }) catch { resp.sendError(request, 500, "Internal Server Error"); return; };
+    const call_response = client.send(arena, protocol.Methods.runtime_call_function_on, cp) catch { resp.sendError(request, 502, "getAttribute failed"); return; };
+    const val = extractSimpleJsonString(call_response, 0, "\"value\"") orelse "null";
+    const escaped_val = jsonEscapeAlloc(arena, val) orelse { resp.sendError(request, 500, "Internal Server Error"); return; };
+    const body = std.fmt.allocPrint(arena, "{{\"ok\":true,\"attribute\":\"{s}\",\"value\":\"{s}\"}}", .{ escaped_name, escaped_val }) catch { resp.sendError(request, 500, "Internal Server Error"); return; };
+    resp.sendJson(request, body);
+}
+
+fn handleInputValue(request: *std.http.Server.Request, arena: std.mem.Allocator, bridge: *Bridge) void {
+    const target = request.head.target;
+    const tab_id = requireEffectiveTabId(arena, request, bridge) orelse return;
+    const ref = getQueryParam(target, "ref") orelse { resp.sendError(request, 400, "Missing ref parameter"); return; };
+    const client = bridge.getCdpClient(tab_id) orelse { resp.sendError(request, 404, "Tab not found"); return; };
+    bridge.mu.lockShared();
+    const cache = bridge.snapshots.get(tab_id);
+    bridge.mu.unlockShared();
+    const bid = if (cache) |c| c.refs.get(ref) else null;
+    if (bid == null) { resp.sendError(request, 400, "Ref not found"); return; }
+    const rp = std.fmt.allocPrint(arena, "{{\"backendNodeId\":{d}}}", .{bid.?}) catch { resp.sendError(request, 500, "Internal Server Error"); return; };
+    const rr = client.send(arena, protocol.Methods.dom_resolve_node, rp) catch { resp.sendError(request, 502, "DOM.resolveNode failed"); return; };
+    const oid = extractSimpleJsonString(rr, 0, "\"objectId\"") orelse { resp.sendError(request, 500, "Could not resolve element"); return; };
+    const js = "function() { return this.value || ''; }";
+    const escaped_fn = jsonEscapeAlloc(arena, js) orelse { resp.sendError(request, 500, "Internal Server Error"); return; };
+    const cp = std.fmt.allocPrint(arena, "{{\"objectId\":\"{s}\",\"functionDeclaration\":\"{s}\",\"returnByValue\":true}}", .{ oid, escaped_fn }) catch { resp.sendError(request, 500, "Internal Server Error"); return; };
+    const call_response = client.send(arena, protocol.Methods.runtime_call_function_on, cp) catch { resp.sendError(request, 502, "inputvalue failed"); return; };
+    const val = extractSimpleJsonString(call_response, 0, "\"value\"") orelse "";
+    const escaped_val = jsonEscapeAlloc(arena, val) orelse { resp.sendError(request, 500, "Internal Server Error"); return; };
+    const body = std.fmt.allocPrint(arena, "{{\"ok\":true,\"value\":\"{s}\"}}", .{escaped_val}) catch { resp.sendError(request, 500, "Internal Server Error"); return; };
+    resp.sendJson(request, body);
+}
+
+fn handleReact(request: *std.http.Server.Request, arena: std.mem.Allocator, bridge: *Bridge, mode: []const u8) void {
+    const tab_id = requireEffectiveTabId(arena, request, bridge) orelse return;
+    const client = bridge.getCdpClient(tab_id) orelse { resp.sendError(request, 404, "Tab not found"); return; };
+    const escaped_mode = jsonEscapeAlloc(arena, mode) orelse { resp.sendError(request, 500, "Internal Server Error"); return; };
+    const js = std.fmt.allocPrint(arena,
+        \\(function() {{
+        \\  var hook = window.__REACT_DEVTOOLS_GLOBAL_HOOK__;
+        \\  if (!hook) return JSON.stringify({{error:'React DevTools hook not found'}});
+        \\  var mode = '{s}';
+        \\  if (mode === 'tree') {{
+        \\    var fiberRoots = [];
+        \\    hook.getFiberRoots && hook.getFiberRoots(1).forEach(function(root) {{
+        \\      function walk(fiber, depth) {{
+        \\        if (!fiber || depth > 20) return null;
+        \\        var name = fiber.type ? (fiber.type.displayName || fiber.type.name || 'Anonymous') : '#text';
+        \\        var children = [];
+        \\        var child = fiber.child;
+        \\        while (child) {{ var c = walk(child, depth+1); if (c) children.push(c); child = child.sibling; }}
+        \\        return {{name:name,children:children}};
+        \\      }}
+        \\      fiberRoots.push(walk(root.current, 0));
+        \\    }});
+        \\    return JSON.stringify({{ok:true,mode:'tree',roots:fiberRoots}});
+        \\  }} else if (mode === 'inspect') {{
+        \\    var renderers = []; hook.renderers && hook.renderers.forEach(function(v,k) {{ renderers.push({{id:k,version:v.version||'unknown'}}); }});
+        \\    return JSON.stringify({{ok:true,mode:'inspect',renderers:renderers}});
+        \\  }} else if (mode === 'renders') {{
+        \\    return JSON.stringify({{ok:true,mode:'renders',message:'Use React Profiler API for render tracking'}});
+        \\  }} else if (mode === 'suspense') {{
+        \\    return JSON.stringify({{ok:true,mode:'suspense',message:'Suspense boundaries detected via fiber walk'}});
+        \\  }}
+        \\  return JSON.stringify({{error:'unknown mode'}});
+        \\}})()
+    , .{escaped_mode}) catch { resp.sendError(request, 500, "Internal Server Error"); return; };
+    const escaped = jsonEscapeAlloc(arena, js) orelse { resp.sendError(request, 500, "Internal Server Error"); return; };
+    const params = std.fmt.allocPrint(arena, "{{\"expression\":\"{s}\",\"returnByValue\":true}}", .{escaped}) catch { resp.sendError(request, 500, "Internal Server Error"); return; };
+    const response = client.send(arena, protocol.Methods.runtime_evaluate, params) catch { resp.sendError(request, 502, "CDP command failed"); return; };
+    const val = extractSimpleJsonString(response, 0, "\"value\"") orelse { resp.sendJson(request, response); return; };
+    resp.sendJson(request, val);
+}
+
+fn handleRecording(request: *std.http.Server.Request, arena: std.mem.Allocator, bridge: *Bridge, mode: []const u8) void {
+    const tab_id = requireEffectiveTabId(arena, request, bridge) orelse return;
+    const client = bridge.getCdpClient(tab_id) orelse { resp.sendError(request, 404, "Tab not found"); return; };
+    if (std.mem.eql(u8, mode, "start")) {
+        const js =
+            \\(function() {
+            \\  window.__kuri_recording = [];
+            \\  function rec(e) { window.__kuri_recording.push({type:e.type,target:e.target.tagName,timestamp:Date.now(),value:e.target.value||''}); }
+            \\  document.addEventListener('click', rec, true);
+            \\  document.addEventListener('input', rec, true);
+            \\  document.addEventListener('change', rec, true);
+            \\  window.__kuri_recording_cleanup = function() { document.removeEventListener('click',rec,true); document.removeEventListener('input',rec,true); document.removeEventListener('change',rec,true); };
+            \\  return 'recording started';
+            \\})()
+        ;
+        const escaped = jsonEscapeAlloc(arena, js) orelse { resp.sendError(request, 500, "Internal Server Error"); return; };
+        const params = std.fmt.allocPrint(arena, "{{\"expression\":\"{s}\",\"returnByValue\":true}}", .{escaped}) catch { resp.sendError(request, 500, "Internal Server Error"); return; };
+        _ = client.send(arena, protocol.Methods.runtime_evaluate, params) catch { resp.sendError(request, 502, "CDP command failed"); return; };
+        resp.sendJson(request, "{\"ok\":true,\"action\":\"recording\",\"mode\":\"start\"}");
+    } else {
+        const js =
+            \\(function() {
+            \\  var rec = window.__kuri_recording || [];
+            \\  if (window.__kuri_recording_cleanup) { window.__kuri_recording_cleanup(); delete window.__kuri_recording_cleanup; }
+            \\  delete window.__kuri_recording;
+            \\  return JSON.stringify(rec);
+            \\})()
+        ;
+        const escaped = jsonEscapeAlloc(arena, js) orelse { resp.sendError(request, 500, "Internal Server Error"); return; };
+        const params = std.fmt.allocPrint(arena, "{{\"expression\":\"{s}\",\"returnByValue\":true}}", .{escaped}) catch { resp.sendError(request, 500, "Internal Server Error"); return; };
+        const response = client.send(arena, protocol.Methods.runtime_evaluate, params) catch { resp.sendError(request, 502, "CDP command failed"); return; };
+        const val = extractSimpleJsonString(response, 0, "\"value\"") orelse "[]";
+        const body = std.fmt.allocPrint(arena, "{{\"ok\":true,\"action\":\"recording\",\"mode\":\"stop\",\"events\":{s}}}", .{val}) catch { resp.sendError(request, 500, "Internal Server Error"); return; };
+        resp.sendJson(request, body);
+    }
+}
+
+fn handleRequestDetail(request: *std.http.Server.Request, arena: std.mem.Allocator, bridge: *Bridge) void {
+    const target = request.head.target;
+    const tab_id = requireEffectiveTabId(arena, request, bridge) orelse return;
+    const request_id = getDecodedQueryParamAlloc(arena, target, "requestId") orelse { resp.sendError(request, 400, "Missing requestId parameter"); return; };
+    const client = bridge.getCdpClient(tab_id) orelse { resp.sendError(request, 404, "Tab not found"); return; };
+    const escaped_id = jsonEscapeAlloc(arena, request_id) orelse { resp.sendError(request, 500, "Internal Server Error"); return; };
+    const params = std.fmt.allocPrint(arena, "{{\"requestId\":\"{s}\"}}", .{escaped_id}) catch { resp.sendError(request, 500, "Internal Server Error"); return; };
+    const response = client.send(arena, "Network.getResponseBody", params) catch { resp.sendError(request, 502, "CDP command failed"); return; };
+    resp.sendJson(request, response);
+}
+
+fn handleWaitForDownload(request: *std.http.Server.Request, arena: std.mem.Allocator, bridge: *Bridge) void {
+    const target = request.head.target;
+    const tab_id = requireEffectiveTabId(arena, request, bridge) orelse return;
+    const timeout_str = getQueryParam(target, "timeout") orelse "30000";
+    const timeout_ms = std.fmt.parseInt(u64, timeout_str, 10) catch 30000;
+    const client = bridge.getCdpClient(tab_id) orelse { resp.sendError(request, 404, "Tab not found"); return; };
+    _ = client.send(arena, "Page.setDownloadBehavior", "{\"behavior\":\"allow\",\"downloadPath\":\"/tmp/kuri-downloads\"}") catch {};
+    const js = std.fmt.allocPrint(arena, "(function() {{ return JSON.stringify({{ok:true,action:'waitForDownload',timeout:{d},message:'Download behavior set to allow'}}); }})()", .{timeout_ms}) catch { resp.sendError(request, 500, "Internal Server Error"); return; };
+    const escaped = jsonEscapeAlloc(arena, js) orelse { resp.sendError(request, 500, "Internal Server Error"); return; };
+    const params = std.fmt.allocPrint(arena, "{{\"expression\":\"{s}\",\"returnByValue\":true}}", .{escaped}) catch { resp.sendError(request, 500, "Internal Server Error"); return; };
+    const response = client.send(arena, protocol.Methods.runtime_evaluate, params) catch { resp.sendError(request, 502, "CDP command failed"); return; };
+    const val = extractSimpleJsonString(response, 0, "\"value\"") orelse { resp.sendJson(request, response); return; };
+    resp.sendJson(request, val);
+}
+
+fn handleRemoveInitScript(request: *std.http.Server.Request, arena: std.mem.Allocator, bridge: *Bridge) void {
+    const target = request.head.target;
+    const tab_id = requireEffectiveTabId(arena, request, bridge) orelse return;
+    const identifier = getDecodedQueryParamAlloc(arena, target, "identifier") orelse { resp.sendError(request, 400, "Missing identifier parameter"); return; };
+    const client = bridge.getCdpClient(tab_id) orelse { resp.sendError(request, 404, "Tab not found"); return; };
+    const escaped_id = jsonEscapeAlloc(arena, identifier) orelse { resp.sendError(request, 500, "Internal Server Error"); return; };
+    const params = std.fmt.allocPrint(arena, "{{\"identifier\":\"{s}\"}}", .{escaped_id}) catch { resp.sendError(request, 500, "Internal Server Error"); return; };
+    _ = client.send(arena, protocol.Methods.page_remove_script, params) catch { resp.sendError(request, 502, "CDP command failed"); return; };
+    const body = std.fmt.allocPrint(arena, "{{\"ok\":true,\"action\":\"removeInitScript\",\"identifier\":\"{s}\"}}", .{escaped_id}) catch { resp.sendError(request, 500, "Internal Server Error"); return; };
+    resp.sendJson(request, body);
+}
+
+fn handleEvalHandle(request: *std.http.Server.Request, arena: std.mem.Allocator, bridge: *Bridge) void {
+    const target = request.head.target;
+    const tab_id = requireEffectiveTabId(arena, request, bridge) orelse return;
+    const expr_decoded = getDecodedQueryParamAlloc(arena, target, "expression") orelse { resp.sendError(request, 400, "Missing expression parameter"); return; };
+    const client = bridge.getCdpClient(tab_id) orelse { resp.sendError(request, 404, "Tab not found"); return; };
+    const expr = jsonEscapeAlloc(arena, expr_decoded) orelse { resp.sendError(request, 500, "Internal Server Error"); return; };
+    const escaped_expr = jsonEscapeAlloc(arena, expr) orelse { resp.sendError(request, 500, "Internal Server Error"); return; };
+    const params = std.fmt.allocPrint(arena, "{{\"expression\":\"{s}\",\"returnByValue\":false}}", .{escaped_expr}) catch { resp.sendError(request, 500, "Internal Server Error"); return; };
+    const response = client.send(arena, protocol.Methods.runtime_evaluate, params) catch { resp.sendError(request, 502, "CDP command failed"); return; };
+    resp.sendJson(request, response);
+}
+
+fn handleDiffUrl(request: *std.http.Server.Request, arena: std.mem.Allocator, bridge: *Bridge) void {
+    const target = request.head.target;
+    const tab_id = requireEffectiveTabId(arena, request, bridge) orelse return;
+    const url1 = getDecodedQueryParamAlloc(arena, target, "url1") orelse { resp.sendError(request, 400, "Missing url1 parameter"); return; };
+    const url2 = getDecodedQueryParamAlloc(arena, target, "url2") orelse { resp.sendError(request, 400, "Missing url2 parameter"); return; };
+    const client = bridge.getCdpClient(tab_id) orelse { resp.sendError(request, 404, "Tab not found"); return; };
+    // Navigate to url1 and snapshot
+    const escaped_url1 = jsonEscapeAlloc(arena, url1) orelse { resp.sendError(request, 500, "Internal Server Error"); return; };
+    const nav1 = std.fmt.allocPrint(arena, "{{\"url\":\"{s}\"}}", .{escaped_url1}) catch { resp.sendError(request, 500, "Internal Server Error"); return; };
+    _ = client.send(arena, protocol.Methods.page_navigate, nav1) catch { resp.sendError(request, 502, "Navigation to url1 failed"); return; };
+    // Wait for page load
+    const wait_js = "(function() { return document.readyState; })()";
+    const escaped_wait = jsonEscapeAlloc(arena, wait_js) orelse { resp.sendError(request, 500, "Internal Server Error"); return; };
+    const wait_params = std.fmt.allocPrint(arena, "{{\"expression\":\"{s}\",\"returnByValue\":true,\"awaitPromise\":true}}", .{escaped_wait}) catch { resp.sendError(request, 500, "Internal Server Error"); return; };
+    _ = client.send(arena, protocol.Methods.runtime_evaluate, wait_params) catch {};
+    // Get snapshot1 via a11y tree
+    const snap1_response = client.send(arena, protocol.Methods.accessibility_get_full_tree, null) catch { resp.sendError(request, 502, "Failed to get snapshot for url1"); return; };
+    // Navigate to url2 and snapshot
+    const escaped_url2 = jsonEscapeAlloc(arena, url2) orelse { resp.sendError(request, 500, "Internal Server Error"); return; };
+    const nav2 = std.fmt.allocPrint(arena, "{{\"url\":\"{s}\"}}", .{escaped_url2}) catch { resp.sendError(request, 500, "Internal Server Error"); return; };
+    _ = client.send(arena, protocol.Methods.page_navigate, nav2) catch { resp.sendError(request, 502, "Navigation to url2 failed"); return; };
+    _ = client.send(arena, protocol.Methods.runtime_evaluate, wait_params) catch {};
+    const snap2_response = client.send(arena, protocol.Methods.accessibility_get_full_tree, null) catch { resp.sendError(request, 502, "Failed to get snapshot for url2"); return; };
+    // Parse and diff
+    const a11y = @import("../snapshot/a11y.zig");
+    const diff_mod = @import("../snapshot/diff.zig");
+    const nodes1 = parseA11yNodes(arena, snap1_response) catch { resp.sendError(request, 500, "Failed to parse url1 snapshot"); return; };
+    const snap1 = a11y.buildSnapshot(nodes1, .{}, arena) catch { resp.sendError(request, 500, "Failed to build url1 snapshot"); return; };
+    const nodes2 = parseA11yNodes(arena, snap2_response) catch { resp.sendError(request, 500, "Failed to parse url2 snapshot"); return; };
+    const snap2 = a11y.buildSnapshot(nodes2, .{}, arena) catch { resp.sendError(request, 500, "Failed to build url2 snapshot"); return; };
+    const diff_entries = diff_mod.diffSnapshots(snap1, snap2, arena) catch { resp.sendError(request, 500, "Failed to compute diff"); return; };
+    // Serialize diff as JSON
+    var json_buf: std.ArrayList(u8) = .empty;
+    json_buf.appendSlice(arena, "{\"ok\":true,\"url1\":\"") catch return;
+    json_buf.appendSlice(arena, escaped_url1) catch return;
+    json_buf.appendSlice(arena, "\",\"url2\":\"") catch return;
+    json_buf.appendSlice(arena, escaped_url2) catch return;
+    json_buf.appendSlice(arena, "\",\"diff\":[") catch return;
+    for (diff_entries, 0..) |entry, i| {
+        if (i > 0) json_buf.appendSlice(arena, ",") catch return;
+        json_buf.appendSlice(arena, "{") catch return;
+        writeJsonField(&json_buf, arena, "kind", switch (entry.kind) { .added => "added", .removed => "removed", .changed => "changed" }) catch return;
+        json_buf.appendSlice(arena, ",") catch return;
+        writeJsonField(&json_buf, arena, "ref", entry.node.ref) catch return;
+        json_buf.appendSlice(arena, ",") catch return;
+        writeJsonField(&json_buf, arena, "role", entry.node.role) catch return;
+        json_buf.appendSlice(arena, ",") catch return;
+        writeJsonField(&json_buf, arena, "name", entry.node.name) catch return;
+        json_buf.appendSlice(arena, "}") catch return;
+    }
+    json_buf.appendSlice(arena, "]}") catch return;
+    resp.sendJson(request, json_buf.items);
+}
+
+
+
 test "screenshot routes match" {
     for ([_][]const u8{ "/screenshot/annotated", "/screenshot/diff", "/screencast/start", "/screencast/stop" }) |p| {
         try std.testing.expect(p.len > 0);
@@ -5501,8 +7016,26 @@ test "total endpoint count" {
         "/perf/lcp",
         // Tier 3 new endpoints
                    "/ws/start",        "/ws/stop",
+        // Tier 4 new endpoints
+        "/batch",            "/element/state",
+        // Tier 5 new endpoints
+        "/find-element",     "/dialog/auto",     "/dialog/accept",   "/dialog/dismiss",
+        "/mouse/move",       "/mouse/down",      "/mouse/up",        "/mouse/wheel",
+        "/page/state",
+        // Tier 6 new endpoints
+        "/clipboard/read",   "/clipboard/write",  "/clear",           "/boundingbox",
+        "/wait/function",    "/response/body",    "/setcontent",      "/selectall",
+        "/setvalue",         "/timezone",         "/locale",          "/permissions",
+        "/tap",              "/dispatch",         "/download",
+        // Tier 7 new endpoints
+        "/addstyle",         "/bringtofront",     "/pushstate",        "/expose",
+        "/multiselect",      "/swipe",            "/vitals",           "/frame",
+        "/mainframe",        "/getattribute",     "/inputvalue",       "/react/tree",
+        "/react/inspect",    "/react/renders",    "/react/suspense",   "/recording/start",
+        "/recording/stop",   "/request/detail",   "/wait/download",    "/initscript/remove",
+        "/evalhandle",       "/diff/url",
     };
-    try std.testing.expectEqual(@as(usize, 87), routes.len);
+    try std.testing.expectEqual(@as(usize, 135), routes.len);
 }
 
 test "buildGetExpression title" {

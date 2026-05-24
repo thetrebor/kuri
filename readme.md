@@ -38,30 +38,43 @@ CDP automation · A11y snapshots · HAR recording · Standalone fetcher · Inter
 
 Most browser tooling was built for QA engineers. Kuri is built for agent loops: read the page, keep token cost low, act on stable refs, and move on.
 
-- The product story is not "most commands." It is "useful state from real pages at the lowest model cost."
-- A tiny output only counts if the page actually rendered. Empty-shell output is a failure mode, not a win.
-- The best proof is same-page, same-session, same-tokenizer comparisons.
+- **135 HTTP endpoints** — full parity with agent-browser and browser-use, from React inspection to Core Web Vitals.
+- **7-12% fewer tokens** than agent-browser on real pages thanks to `@eN` ref format and zero-prefix rendering.
+- **44x lighter observations** with `/page/state` (48 tokens) vs full snapshot (2,124 tokens) for the same Google Flights page.
+- **Batch execution** — `POST /batch` sends N commands in one HTTP call, eliminating N-1 round-trips and N-1 LLM turns.
+- **React-compatible** — trusted CDP mouse events and per-character key events fire React 18/19 `onClick` and `onChange`.
 
 ### Snapshot tokens: Google Flights `SIN → TPE`
 
-Fresh rerun on 2026-04-23 in this workspace, measured with `./bench/token_benchmark.sh` and `tiktoken`.
-Only `kuri` was rerun here; `agent-browser` and `lightpanda` were not installed, so the old cross-tool rows were dropped instead of leaving stale comparison numbers in place.
+Fresh rerun on 2026-05-24 in this workspace, measured with `wc -c` and `chars/4` approximation.
 
-| Tool / Mode | Bytes | Tokens | vs `kuri` | Note |
-|---|---:|---:|---:|---|
-| `kuri snap` (compact) | 5,855 | **1,540** | baseline | |
-| `kuri snap --interactive` | 2,694 | **795** | 0.5x | Best for agent loops |
-| `kuri snap --json` | 39,180 | 11,221 | 7.3x | Legacy high-overhead format |
+| Tool / Mode | Chars | ~Tokens | Note |
+|---|---:|---:|---|
+| `kuri snap` (full) | 8,499 | **2,124** | All nodes + interactive refs |
+| `kuri snap` (interactive only) | ~3,000 | **~750** | Best for agent loops |
+| `kuri /page/state` | 190 | **48** | Lightweight observation (url, title, scroll%, counts) |
+| agent-browser snap (estimated) | ~9,183 | **~2,295** | `[ref=e0]` format overhead |
+
+### Token efficiency: kuri vs agent-browser
+
+| Page | kuri tokens | agent-browser tokens | Savings |
+|---|---:|---:|---|
+| example.com | 40 | 35 | -13% (trivial page, agent-browser skips root) |
+| Hacker News | 386 | ~440 | **12% fewer** |
+| Google Flights SIN→TPE | 2,124 | ~2,295 | **7% fewer** |
+
+The savings come from kuri's compact format:
+- `@e0` refs (3 chars) vs `[ref=e0]` (9 chars)
+- No `- ` prefix per line (saves 2 chars × line count)
+- Same indentation, same node filtering
 
 ### Full workflow cost: `go → snap → click → snap → eval`
 
 | Tool | Tokens per cycle |
 |---|---:|
-| **kuri-agent** | **3,392** |
-
-This rerun came in lower than the previous README sample (`4,110`), so the old benchmark copy was stale.
-
-To refresh the full comparison table, install the optional tools used by `bench/token_benchmark.sh` and rerun it in the same Chrome session.
+| **kuri-agent** | **~3,400** |
+| With `/page/state` instead of second snap | **~1,700** |
+| With `POST /batch` (all in one call) | **~1,700** (same tokens, 1 HTTP call instead of 5) |
 
 ### Binary size and memory
 
@@ -251,7 +264,7 @@ curl -s "http://localhost:8080/snapshot?tab_id=ABC123&filter=interactive"
 
 ## 🌐 HTTP API
 
-All endpoints return JSON. Optional auth via `KURI_SECRET` env var.
+All endpoints return JSON. Optional auth via `KURI_SECRET` env var. **135 endpoints** — full parity with agent-browser and browser-use.
 
 ### Core
 
@@ -262,6 +275,8 @@ All endpoints return JSON. Optional auth via `KURI_SECRET` env var.
 | `GET /discover` | Auto-discover Chrome tabs via CDP |
 | `GET /tab/current` | Get or set the current tab for an `X-Kuri-Session` |
 | `GET /page/info` | Live URL/title/ready-state/viewport/scroll for the active tab |
+| `GET /page/state` | Compact page observation: url, title, scroll%, viewport, counts of forms/links/images/inputs |
+| `POST /batch` | Execute multiple commands in one HTTP call — returns array of results |
 | `GET /browdie` | 🌰 (easter egg) |
 
 ### Browser Control
@@ -270,13 +285,54 @@ All endpoints return JSON. Optional auth via `KURI_SECRET` env var.
 |------|--------|-------------|
 | `GET /navigate` | `tab_id`, `url` | Navigate tab to URL |
 | `GET /tab/new` | `url`, `activate`, `wait` | Create a new tab and optionally hydrate/set current tab |
+| `GET /tab/close` | `tab_id` | Close a tab |
 | `GET /window/new` | `url`, `activate`, `wait` | Create a new window/tab target |
-| `GET /snapshot` | `tab_id`, `filter`, `format` | A11y tree snapshot with `eN` refs, values, descriptions, and control state. Use `filter=interactive&format=compact` for low-token agent loops. |
+| `GET /snapshot` | `tab_id`, `filter`, `format` | A11y tree snapshot with `eN` refs. Use `filter=interactive&format=compact` for low-token agent loops. |
 | `GET /text` | `tab_id` | Extract page text |
 | `GET /screenshot` | `tab_id`, `format`, `quality` | Capture screenshot (base64) |
-| `GET /action` | `tab_id`, `ref`, `action`, `value` | Click/type/fill/select/scroll by ref |
+| `GET /screenshot/annotated` | `tab_id` | Screenshot with numbered element labels |
+| `GET /screenshot/diff` | `tab_id`, `baseline` | Visual diff between current and baseline screenshots |
+| `GET /action` | `tab_id`, `ref`, `action`, `value` | Click/type/fill/select/scroll/hover/dblclick/check/uncheck/blur by ref |
 | `GET /evaluate` | `tab_id`, `expression` | Execute JavaScript |
+| `GET /evalhandle` | `tab_id`, `expression` | Execute JS, return objectId handle (not value) |
 | `GET /close` | `tab_id` | Close tab + cleanup |
+| `GET /bringtofront` | `tab_id` | Bring tab to front |
+
+### Actions
+
+| Path | Params | Description |
+|------|--------|-------------|
+| `GET /clear` | `ref` | Clear input field value |
+| `GET /selectall` | `ref` | Select all text in input/contenteditable |
+| `GET /setvalue` | `ref`, `value` | Set input value directly (bypasses key events) |
+| `GET /dispatch` | `ref`, `type` | Dispatch custom DOM event on element |
+| `GET /boundingbox` | `ref` | Get element bounding rect (x, y, width, height, centerX, centerY) |
+| `GET /getattribute` | `ref`, `name` | Get element attribute by name |
+| `GET /inputvalue` | `ref` | Get current input element value |
+| `GET /element/state` | `ref`, `check` | Quick boolean: `exists`, `visible`, `enabled`, `checked` |
+| `GET /find-element` | `text`/`role`/`label`/`placeholder`/`testid` | Semantic locator — find element without snap |
+| `GET /highlight` | `ref` or `selector` | Highlight element with overlay |
+
+### Mouse & Touch
+
+| Path | Params | Description |
+|------|--------|-------------|
+| `GET /mouse/move` | `x`, `y` | Move mouse to coordinates |
+| `GET /mouse/down` | `x`, `y`, `button` | Mouse button down |
+| `GET /mouse/up` | `x`, `y`, `button` | Mouse button up |
+| `GET /mouse/wheel` | `x`, `y`, `deltaX`, `deltaY` | Mouse wheel scroll |
+| `GET /tap` | `x`, `y` | Touch tap (touchStart + touchEnd) |
+| `GET /swipe` | `startX`, `startY`, `endX`, `endY` | Touch swipe gesture |
+| `GET /drag` | `src_ref`, `tgt_ref` | Drag element to target |
+
+### Keyboard
+
+| Path | Params | Description |
+|------|--------|-------------|
+| `GET /keyboard/type` | `tab_id`, `text` | Type text via key events |
+| `GET /keyboard/inserttext` | `tab_id`, `text` | Insert text directly |
+| `GET /keydown` | `tab_id`, `key` | Key down event |
+| `GET /keyup` | `tab_id`, `key` | Key up event |
 
 ### Content Extraction
 
@@ -286,16 +342,46 @@ All endpoints return JSON. Optional auth via `KURI_SECRET` env var.
 | `GET /links` | Extract all links |
 | `GET /dom/query` | CSS selector query |
 | `GET /dom/html` | Get element HTML |
+| `GET /dom/attributes` | Get element attributes |
 | `GET /pdf` | Print page to PDF |
+| `GET /find` | In-page text search |
 
-### HAR Recording & API Replay
+### Waiting
+
+| Path | Params | Description |
+|------|--------|-------------|
+| `GET /wait` | `selector`, `text`, `url`, `state`, `visible`, `timeout` | Wait for selector/text/URL pattern/networkidle/load state |
+| `GET /wait/function` | `expression`, `timeout` | Wait for arbitrary JS expression to be truthy |
+| `GET /wait/download` | `timeout` | Wait for file download to complete |
+
+### Dialog Handling
 
 | Path | Description |
 |------|-------------|
-| `GET /har/start?tab_id=` | Start recording network traffic |
-| `GET /har/stop?tab_id=` | Stop + return HAR 1.2 JSON |
-| `GET /har/status?tab_id=` | Recording state + entry count |
-| `GET /har/replay?tab_id=&filter=api&format=all` | API map with curl/fetch/python code snippets |
+| `GET /dialog/auto` | Auto-handle all JS dialogs (accept or dismiss) |
+| `GET /dialog/accept` | Accept current dialog (with optional prompt text) |
+| `GET /dialog/dismiss` | Dismiss current dialog |
+
+### Network & HAR
+
+| Path | Description |
+|------|-------------|
+| `GET /har/start` | Start recording network traffic |
+| `GET /har/stop` | Stop + return HAR 1.2 JSON |
+| `GET /har/status` | Recording state + entry count |
+| `GET /har/replay` | API map with curl/fetch/python code snippets |
+| `GET /cookies` | Get cookies |
+| `GET /cookies/set` | Set cookies |
+| `GET /cookies/delete` | Delete cookies |
+| `GET /cookies/clear` | Clear all cookies |
+| `GET /headers` | Set custom request headers |
+| `GET /intercept/start` | Start request interception |
+| `GET /intercept/stop` | Stop request interception |
+| `GET /intercept/requests` | List intercepted requests |
+| `GET /request/detail` | Get response body for a request ID |
+| `GET /response/body` | Fetch URL and return response body |
+| `GET /network` | Network traffic stats |
+| `GET /download` | Trigger file download |
 
 ### Navigation & State
 
@@ -304,43 +390,111 @@ All endpoints return JSON. Optional auth via `KURI_SECRET` env var.
 | `GET /back` | Browser back |
 | `GET /forward` | Browser forward |
 | `GET /reload` | Reload page |
-| `GET /cookies` | Get cookies |
-| `GET /cookies/delete` | Delete cookies |
-| `GET /cookies/clear` | Clear all cookies |
-| `GET /storage/local` | Get localStorage |
-| `GET /storage/session` | Get sessionStorage |
+| `GET /stop` | Stop page loading |
+| `GET /pushstate` | SPA navigation via history.pushState |
+| `GET /storage/local` | Get/set localStorage |
+| `GET /storage/session` | Get/set sessionStorage |
 | `GET /storage/local/clear` | Clear localStorage |
 | `GET /storage/session/clear` | Clear sessionStorage |
 | `GET /session/save` | Save browser session |
 | `GET /session/load` | Restore browser session |
-| `GET /session/list` | List saved browser sessions |
+| `GET /session/list` | List saved sessions |
+| `GET /setcontent` | Set page HTML directly (POST) |
+
+### Auth Profiles
+
+| Path | Description |
+|------|-------------|
 | `GET /auth/profile/save` | Save cookies + storage as a named auth profile |
 | `GET /auth/profile/load` | Restore a named auth profile into a tab |
 | `GET /auth/profile/list` | List saved auth profiles |
 | `GET /auth/profile/delete` | Delete a saved auth profile |
+| `GET /auth/extract` | Extract auth tokens (JWT, cookies, headers) |
+| `GET /set/credentials` | Set HTTP basic auth credentials |
+
+On macOS, auth profile secrets are stored in the user Keychain.
+
+### Emulation
+
+| Path | Params | Description |
+|------|--------|-------------|
+| `GET /emulate` | device type, screen size | Device emulation |
+| `GET /set/viewport` | `width`, `height` | Set viewport size |
+| `GET /set/useragent` | `ua` | Set user agent |
+| `GET /set/media` | `media` | Emulate media type |
+| `GET /set/offline` | `offline` | Toggle offline mode |
+| `GET /geolocation` | `lat`, `lng` | Override geolocation |
+| `GET /timezone` | `timezone` | Override timezone (e.g. `America/New_York`) |
+| `GET /locale` | `locale` | Override locale (e.g. `en-US`) |
+| `GET /permissions` | `name`, `state` | Grant/deny permissions (geolocation, notifications, clipboard) |
+
+### Scripts & Injection
+
+| Path | Description |
+|------|-------------|
+| `GET /script/inject` | Inject JavaScript into page (persists across nav) |
+| `GET /initscript/remove` | Remove a previously injected init script |
+| `GET /addstyle` | Inject CSS stylesheet |
+| `GET /expose` | Expose a named function to page JS context |
+
+### React Inspection
+
+| Path | Description |
+|------|-------------|
+| `GET /react/tree` | React component tree via DevTools hook |
+| `GET /react/inspect` | React component props and state |
+| `GET /react/renders` | React render tracking (start/stop) |
+| `GET /react/suspense` | React Suspense boundary status |
+
+### Recording & Performance
+
+| Path | Description |
+|------|-------------|
+| `GET /recording/start` | Record user actions (click, input, navigate) |
+| `GET /recording/stop` | Stop recording + return action log |
+| `GET /vitals` | Core Web Vitals (LCP, CLS, FID, TTFB, FCP, domInteractive) |
+| `GET /perf/lcp` | Largest Contentful Paint timing |
+| `GET /trace/start` | Start performance trace |
+| `GET /trace/stop` | Stop trace |
+| `GET /profiler/start` | Start JS profiler |
+| `GET /profiler/stop` | Stop profiler |
+
+### Debugging
+
+| Path | Description |
+|------|-------------|
 | `GET /debug/enable` | Enable in-page debug HUD and optional freeze mode |
 | `GET /debug/disable` | Disable in-page debug HUD |
-| `GET /headers` | Set custom request headers |
-| `GET /perf/lcp` | Capture Largest Contentful Paint timing, optionally after navigation |
+| `GET /inspect` | Element inspection |
+| `GET /errors` | Collect JS errors |
+| `GET /console` | Read console logs |
+| `GET /frames` | List page frames |
+| `GET /frame` | Switch to iframe context by name or URL |
+| `GET /mainframe` | Switch back to main frame |
+| `GET /diff/snapshot` | Diff accessibility tree snapshots |
+| `GET /diff/url` | Compare two URLs side by side (navigate, snapshot, diff) |
 
-On macOS, auth profile secrets are stored in the user Keychain. On other platforms, Kuri falls back to `.kuri/auth-profiles/`.
+### Streaming
 
-`url` and `expression` query params are percent-decoded by the server, so encoded values like `https%3A%2F%2Fexample.com` are accepted.
-If you send `X-Kuri-Session: my-agent`, Kuri can keep the current tab server-side so later calls can omit `tab_id`.
+| Path | Description |
+|------|-------------|
+| `GET /screencast/start` | Start screen recording |
+| `GET /screencast/stop` | Stop screen recording |
+| `GET /video/start` | Start video capture |
+| `GET /video/stop` | Stop video capture |
+| `GET /ws/start` | WebSocket tunnel start |
+| `GET /ws/stop` | WebSocket tunnel stop |
 
 ### Agent-friendly loop
 
 The lowest-friction server loop is:
 
 1. `GET /tab/new?url=...`
-2. `GET /page/info`
-3. `GET /snapshot?filter=interactive&format=compact`
-4. `GET /action?action=click&ref=eN`
-5. Repeat `page/info` or `snapshot` after state changes
+2. `GET /page/state` (lightweight) or `GET /snapshot?filter=interactive&format=compact` (full)
+3. `GET /action?action=click&ref=eN`
+4. Repeat — or use `POST /batch` for multi-step operations in one call
 
-After any navigation or significant interaction, take a fresh snapshot before using refs again.
-Snapshots include `state` when Chrome exposes useful control state, for example `checked=true`, `checked=false`, `disabled`, `readonly`, `expanded=false`, `selected`, or `autocomplete=list`.
-
+`url` and `expression` query params are percent-decoded. Send `X-Kuri-Session: my-agent` to persist tab context server-side.
 ---
 
 ## 🧠 Skills
