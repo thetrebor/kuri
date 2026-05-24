@@ -2,6 +2,14 @@
 
 All notable changes to kuri are documented here.
 
+## [0.4.4] — 2026-05-24
+
+### Features — beyond parity (142 HTTP endpoints)
+- **Action caching** — `/cache/set`, `/cache/get`, `/cache/clear`, `/cache/list` — cache ref mappings so repeated workflows skip LLM inference entirely
+- **Set-of-Marks screenshot** — `/screenshot/som` — screenshot with numbered bounding-box overlays on interactive elements for vision models
+- **Hybrid snapshot** — `/snapshot?include_screenshot=true` — a11y tree + screenshot in one call for multimodal agents
+- **Smart diff** — `/snapshot/changes` — returns only added/removed lines since last snapshot (10-100x fewer tokens)
+- **Recording export** — `/recording/export` — convert recorded actions into replayable `/batch` JSON
 ## [0.4.3] — 2026-05-24
 
 ### Features — full agent-browser parity (135 HTTP endpoints)
