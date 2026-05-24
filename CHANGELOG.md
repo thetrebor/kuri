@@ -2,6 +2,17 @@
 
 All notable changes to kuri are documented here.
 
+## [0.4.2] — 2026-05-24
+
+### Fixes
+- **React/Vue click compatibility** — `click`, `check`, and `uncheck` actions now use CDP `Input.dispatchMouseEvent` (mousePressed/mouseReleased) instead of DOM `.click()`, producing trusted `isTrusted:true` events that React 18/19 event delegation recognizes (#164)
+- **React/Vue type/fill compatibility** — `type` and `fill` actions now use per-character CDP `Input.dispatchKeyEvent` instead of setting `target.value` directly, so React controlled inputs fire `onChange` correctly (#164)
+- **Click coordinate bug** — fixed JS operator precedence in bounding-rect center calculation that caused `r.y + r.height/2` to be string-concatenated instead of added
+- **Server type/fill default** — `realistic` mode (CDP key events) is now the default for the HTTP server `/action` endpoint; opt out with `realistic=false`
+
+### Testing
+- **React e2e fixture** — added `test/react-form.html` for validating form fill + click against React 18 controlled components
+
 ## [0.4.1] — 2026-05-23
 
 ### Release and install fixes
