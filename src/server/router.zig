@@ -356,6 +356,20 @@ fn route(request: *std.http.Server.Request, arena: std.mem.Allocator, bridge: *B
         handleEvalHandle(request, arena, bridge);
     } else if (std.mem.eql(u8, clean_path, "/diff/url")) {
         handleDiffUrl(request, arena, bridge);
+    } else if (std.mem.eql(u8, clean_path, "/cache/set")) {
+        handleCacheSet(request, arena, bridge);
+    } else if (std.mem.eql(u8, clean_path, "/cache/get")) {
+        handleCacheGet(request, arena, bridge);
+    } else if (std.mem.eql(u8, clean_path, "/cache/clear")) {
+        handleCacheClear(request, arena, bridge);
+    } else if (std.mem.eql(u8, clean_path, "/cache/list")) {
+        handleCacheList(request, arena, bridge);
+    } else if (std.mem.eql(u8, clean_path, "/screenshot/som")) {
+        handleScreenshotSom(request, arena, bridge);
+    } else if (std.mem.eql(u8, clean_path, "/snapshot/changes")) {
+        handleSnapshotChanges(request, arena, bridge);
+    } else if (std.mem.eql(u8, clean_path, "/recording/export")) {
+        handleRecordingExport(request, arena, bridge);
     } else {
         resp.sendError(request, 404, "Not Found");
     }
@@ -936,7 +950,35 @@ fn handleSnapshot(request: *std.http.Server.Request, arena: std.mem.Allocator, b
         ref_cache.node_count = snapshot.len;
     }
 
-    sendSnapshotResponse(request, arena, snapshot, opts);
+    // Hybrid snapshot: if include_screenshot=true, wrap snapshot text with a screenshot
+    const include_screenshot = if (getQueryParam(target, "include_screenshot")) |v| std.mem.eql(u8, v, "true") else false;
+    if (include_screenshot) {
+        const a11y_mod = @import("../snapshot/a11y.zig");
+        const snap_text = a11y_mod.formatCompact(snapshot, arena) catch {
+            sendSnapshotResponse(request, arena, snapshot, opts);
+            return;
+        };
+        const screenshot_response = client.send(arena, protocol.Methods.page_capture_screenshot, "{\"format\":\"png\",\"quality\":80}") catch {
+            sendSnapshotResponse(request, arena, snapshot, opts);
+            return;
+        };
+        const screenshot_data = extractSimpleJsonString(screenshot_response, 0, "\"data\"") orelse "";
+        const escaped_snap = jsonEscapeAlloc(arena, snap_text) orelse {
+            sendSnapshotResponse(request, arena, snapshot, opts);
+            return;
+        };
+        const escaped_ss = jsonEscapeAlloc(arena, screenshot_data) orelse {
+            sendSnapshotResponse(request, arena, snapshot, opts);
+            return;
+        };
+        const body = std.fmt.allocPrint(arena, "{{\"snapshot\":\"{s}\",\"screenshot\":\"{s}\"}}", .{ escaped_snap, escaped_ss }) catch {
+            sendSnapshotResponse(request, arena, snapshot, opts);
+            return;
+        };
+        resp.sendJson(request, body);
+    } else {
+        sendSnapshotResponse(request, arena, snapshot, opts);
+    }
 }
 
 fn sendSnapshotResponse(request: *std.http.Server.Request, arena: std.mem.Allocator, snapshot: []const @import("../snapshot/a11y.zig").A11yNode, opts: @import("../snapshot/a11y.zig").SnapshotOpts) void {
@@ -6756,6 +6798,200 @@ fn handleDiffUrl(request: *std.http.Server.Request, arena: std.mem.Allocator, br
 }
 
 
+// --- Action Cache ---
+
+fn handleCacheSet(request: *std.http.Server.Request, arena: std.mem.Allocator, bridge: *Bridge) void {
+    const target = request.head.target;
+    const tab_id = requireEffectiveTabId(arena, request, bridge) orelse return;
+    const key = getQueryParam(target, "key") orelse { resp.sendError(request, 400, "Missing key parameter"); return; };
+    const ref = getQueryParam(target, "ref") orelse "";
+    const action = getQueryParam(target, "action") orelse "";
+    const client = bridge.getCdpClient(tab_id) orelse { resp.sendError(request, 404, "Tab not found"); return; };
+    rememberCurrentTab(request, bridge, tab_id);
+
+    const escaped_key = jsonEscapeAlloc(arena, key) orelse { resp.sendError(request, 500, "Internal Server Error"); return; };
+    const escaped_ref = jsonEscapeAlloc(arena, ref) orelse { resp.sendError(request, 500, "Internal Server Error"); return; };
+    const escaped_action = jsonEscapeAlloc(arena, action) orelse { resp.sendError(request, 500, "Internal Server Error"); return; };
+
+    const js = std.fmt.allocPrint(arena,
+        \\(function() {{
+        \\  if (!window.__kuri_action_cache) window.__kuri_action_cache = {{}};
+        \\  window.__kuri_action_cache["{s}"] = {{ref:"{s}",action:"{s}",url:location.href,timestamp:Date.now()}};
+        \\  return JSON.stringify({{ok:true,key:"{s}"}});
+        \\}})()
+    , .{ escaped_key, escaped_ref, escaped_action, escaped_key }) catch { resp.sendError(request, 500, "Internal Server Error"); return; };
+
+    const val = evalValueString(arena, client, js) orelse { resp.sendError(request, 502, "CDP command failed"); return; };
+    resp.sendJson(request, val);
+}
+
+fn handleCacheGet(request: *std.http.Server.Request, arena: std.mem.Allocator, bridge: *Bridge) void {
+    const target = request.head.target;
+    const tab_id = requireEffectiveTabId(arena, request, bridge) orelse return;
+    const key = getQueryParam(target, "key") orelse { resp.sendError(request, 400, "Missing key parameter"); return; };
+    const client = bridge.getCdpClient(tab_id) orelse { resp.sendError(request, 404, "Tab not found"); return; };
+    rememberCurrentTab(request, bridge, tab_id);
+
+    const escaped_key = jsonEscapeAlloc(arena, key) orelse { resp.sendError(request, 500, "Internal Server Error"); return; };
+
+    const js = std.fmt.allocPrint(arena,
+        \\(function() {{
+        \\  var c = (window.__kuri_action_cache || {{}})["{s}"];
+        \\  if (!c) return JSON.stringify({{found:false}});
+        \\  c.stale = (c.url !== location.href);
+        \\  return JSON.stringify(c);
+        \\}})()
+    , .{escaped_key}) catch { resp.sendError(request, 500, "Internal Server Error"); return; };
+
+    const val = evalValueString(arena, client, js) orelse { resp.sendError(request, 502, "CDP command failed"); return; };
+    resp.sendJson(request, val);
+}
+
+fn handleCacheClear(request: *std.http.Server.Request, arena: std.mem.Allocator, bridge: *Bridge) void {
+    const tab_id = requireEffectiveTabId(arena, request, bridge) orelse return;
+    const client = bridge.getCdpClient(tab_id) orelse { resp.sendError(request, 404, "Tab not found"); return; };
+    rememberCurrentTab(request, bridge, tab_id);
+
+    const js = "(function() { window.__kuri_action_cache = {}; return JSON.stringify({ok:true,action:\"cache_cleared\"}); })()";
+    const val = evalValueString(arena, client, js) orelse { resp.sendError(request, 502, "CDP command failed"); return; };
+    resp.sendJson(request, val);
+}
+
+fn handleCacheList(request: *std.http.Server.Request, arena: std.mem.Allocator, bridge: *Bridge) void {
+    const tab_id = requireEffectiveTabId(arena, request, bridge) orelse return;
+    const client = bridge.getCdpClient(tab_id) orelse { resp.sendError(request, 404, "Tab not found"); return; };
+    rememberCurrentTab(request, bridge, tab_id);
+
+    const js = "(function() { return JSON.stringify({entries: window.__kuri_action_cache || {}, count: Object.keys(window.__kuri_action_cache || {}).length}); })()";
+    const val = evalValueString(arena, client, js) orelse { resp.sendError(request, 502, "CDP command failed"); return; };
+    resp.sendJson(request, val);
+}
+
+// --- Set-of-Marks Screenshot ---
+
+fn handleScreenshotSom(request: *std.http.Server.Request, arena: std.mem.Allocator, bridge: *Bridge) void {
+    const tab_id = requireEffectiveTabId(arena, request, bridge) orelse return;
+    const client = bridge.getCdpClient(tab_id) orelse { resp.sendError(request, 404, "Tab not found"); return; };
+    rememberCurrentTab(request, bridge, tab_id);
+
+    // Step 1: Inject SoM overlay and get element map
+    const inject_js =
+        \\(function() {
+        \\  var overlay = document.createElement('div');
+        \\  overlay.id = '__kuri_som';
+        \\  overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:999999';
+        \\  var elements = document.querySelectorAll('a,button,input,select,textarea,[role]');
+        \\  var idx = 0;
+        \\  var map = [];
+        \\  elements.forEach(function(el) {
+        \\    var r = el.getBoundingClientRect();
+        \\    if (r.width === 0 || r.height === 0) return;
+        \\    var s = getComputedStyle(el);
+        \\    if (s.display === 'none' || s.visibility === 'hidden') return;
+        \\    var box = document.createElement('div');
+        \\    box.style.cssText = 'position:fixed;left:'+r.x+'px;top:'+r.y+'px;width:'+r.width+'px;height:'+r.height+'px;border:2px solid red;background:rgba(255,0,0,0.1);pointer-events:none';
+        \\    var label = document.createElement('span');
+        \\    label.textContent = idx;
+        \\    label.style.cssText = 'position:absolute;top:-14px;left:0;background:red;color:white;font:bold 10px sans-serif;padding:1px 3px;border-radius:2px';
+        \\    box.appendChild(label);
+        \\    overlay.appendChild(box);
+        \\    map.push({idx:idx,tag:el.tagName.toLowerCase(),text:(el.textContent||'').trim().substring(0,40),x:Math.round(r.x),y:Math.round(r.y),w:Math.round(r.width),h:Math.round(r.height)});
+        \\    idx++;
+        \\  });
+        \\  document.body.appendChild(overlay);
+        \\  return JSON.stringify({count:idx,elements:map});
+        \\})()
+    ;
+    const elements_json = evalValueString(arena, client, inject_js) orelse { resp.sendError(request, 502, "Failed to inject SoM overlay"); return; };
+
+    // Step 2: Take screenshot
+    const screenshot_response = client.send(arena, protocol.Methods.page_capture_screenshot, "{\"format\":\"png\",\"quality\":80}") catch {
+        // Clean up overlay before returning error
+        _ = evalValueString(arena, client, "document.getElementById('__kuri_som')?.remove()");
+        resp.sendError(request, 502, "Screenshot capture failed");
+        return;
+    };
+    const screenshot_data = extractSimpleJsonString(screenshot_response, 0, "\"data\"") orelse "";
+
+    // Step 3: Remove overlay
+    _ = evalValueString(arena, client, "document.getElementById('__kuri_som')?.remove()");
+
+    // Step 4: Build combined response
+    const escaped_ss = jsonEscapeAlloc(arena, screenshot_data) orelse { resp.sendError(request, 500, "Internal Server Error"); return; };
+    const body = std.fmt.allocPrint(arena, "{{\"screenshot\":\"{s}\",\"elements\":{s}}}", .{ escaped_ss, elements_json }) catch { resp.sendError(request, 500, "Internal Server Error"); return; };
+    resp.sendJson(request, body);
+}
+
+// --- Smart Diff (Snapshot Changes) ---
+
+fn handleSnapshotChanges(request: *std.http.Server.Request, arena: std.mem.Allocator, bridge: *Bridge) void {
+    const tab_id = requireEffectiveTabId(arena, request, bridge) orelse return;
+    const client = bridge.getCdpClient(tab_id) orelse { resp.sendError(request, 404, "Tab not found"); return; };
+    rememberCurrentTab(request, bridge, tab_id);
+
+    // Step 1: Get previous snapshot text from JS-side storage
+    const prev_text = evalValueString(arena, client, "(function() { return window.__kuri_prev_snapshot || ''; })()") orelse "";
+
+    // Step 2: Take new snapshot via a11y tree
+    const raw_response = client.send(arena, protocol.Methods.accessibility_get_full_tree, null) catch { resp.sendError(request, 502, "CDP command failed"); return; };
+    const a11y = @import("../snapshot/a11y.zig");
+    const nodes = parseA11yNodes(arena, raw_response) catch { resp.sendError(request, 500, "Failed to parse a11y tree"); return; };
+    const snapshot = a11y.buildSnapshot(nodes, .{ .compact = true }, arena) catch { resp.sendError(request, 500, "Failed to build snapshot"); return; };
+    const new_text = a11y.formatCompact(snapshot, arena) catch { resp.sendError(request, 500, "Failed to format snapshot"); return; };
+
+    // Step 3: Store new snapshot as previous
+    const store_escaped = jsonEscapeAlloc(arena, new_text) orelse { resp.sendError(request, 500, "Internal Server Error"); return; };
+    const store_js = std.fmt.allocPrint(arena,
+        \\(function() {{ window.__kuri_prev_snapshot = "{s}"; return "ok"; }})()
+    , .{store_escaped}) catch { resp.sendError(request, 500, "Internal Server Error"); return; };
+    _ = evalValueString(arena, client, store_js);
+
+    // Step 4: Diff line by line using JS to avoid Zig ArrayList API issues
+    // We do a simple JS-based diff since both texts are available
+    const escaped_prev = jsonEscapeAlloc(arena, prev_text) orelse { resp.sendError(request, 500, "Internal Server Error"); return; };
+    const escaped_new = jsonEscapeAlloc(arena, new_text) orelse { resp.sendError(request, 500, "Internal Server Error"); return; };
+    const diff_js = std.fmt.allocPrint(arena,
+        \\(function() {{
+        \\  var prev = "{s}".split("\n").filter(function(l) {{ return l.length > 0; }});
+        \\  var curr = "{s}".split("\n").filter(function(l) {{ return l.length > 0; }});
+        \\  var prevSet = new Set(prev);
+        \\  var currSet = new Set(curr);
+        \\  var added = curr.filter(function(l) {{ return !prevSet.has(l); }});
+        \\  var removed = prev.filter(function(l) {{ return !currSet.has(l); }});
+        \\  var unchanged = curr.filter(function(l) {{ return prevSet.has(l); }}).length;
+        \\  return JSON.stringify({{added:added,removed:removed,unchanged_count:unchanged}});
+        \\}})()
+    , .{ escaped_prev, escaped_new }) catch { resp.sendError(request, 500, "Internal Server Error"); return; };
+    const diff_result = evalValueString(arena, client, diff_js) orelse { resp.sendError(request, 502, "Diff computation failed"); return; };
+    resp.sendJson(request, diff_result);
+}
+
+// --- Recording Export ---
+
+fn handleRecordingExport(request: *std.http.Server.Request, arena: std.mem.Allocator, bridge: *Bridge) void {
+    const tab_id = requireEffectiveTabId(arena, request, bridge) orelse return;
+    const client = bridge.getCdpClient(tab_id) orelse { resp.sendError(request, 404, "Tab not found"); return; };
+    rememberCurrentTab(request, bridge, tab_id);
+
+    // Read the recording data from JS
+    const js =
+        \\(function() {
+        \\  var rec = window.__kuri_recording || [];
+        \\  var commands = [];
+        \\  rec.forEach(function(e) {
+        \\    if (e.type === 'click') {
+        \\      commands.push({path:'/action',action:'click',ref:e.target});
+        \\    } else if (e.type === 'input' || e.type === 'change') {
+        \\      commands.push({path:'/action',action:'fill',ref:e.target,value:e.value||''});
+        \\    }
+        \\  });
+        \\  return JSON.stringify({format:'batch',commands:commands,count:commands.length});
+        \\})()
+    ;
+    const val = evalValueString(arena, client, js) orelse { resp.sendError(request, 502, "CDP command failed"); return; };
+    resp.sendJson(request, val);
+}
+
 
 test "screenshot routes match" {
     for ([_][]const u8{ "/screenshot/annotated", "/screenshot/diff", "/screencast/start", "/screencast/stop" }) |p| {
@@ -7034,8 +7270,11 @@ test "total endpoint count" {
         "/react/inspect",    "/react/renders",    "/react/suspense",   "/recording/start",
         "/recording/stop",   "/request/detail",   "/wait/download",    "/initscript/remove",
         "/evalhandle",       "/diff/url",
+        // Advanced features
+        "/cache/set",        "/cache/get",        "/cache/clear",      "/cache/list",
+        "/screenshot/som",   "/snapshot/changes",  "/recording/export",
     };
-    try std.testing.expectEqual(@as(usize, 135), routes.len);
+    try std.testing.expectEqual(@as(usize, 142), routes.len);
 }
 
 test "buildGetExpression title" {
