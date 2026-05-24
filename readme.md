@@ -5,11 +5,11 @@
 <h1 align="center">Kuri 🌰</h1>
 
 <p align="center">
-  <a href="https://raw.githubusercontent.com/justrach/kuri/release-channel/stable/latest.json"><img src="https://img.shields.io/badge/stable-v0.4.0-brightgreen?style=flat-square" alt="Stable release"></a>
+  <a href="https://raw.githubusercontent.com/justrach/kuri/release-channel/stable/latest.json"><img src="https://img.shields.io/badge/stable-v0.4.3-brightgreen?style=flat-square" alt="Stable release"></a>
   <a href="https://github.com/justrach/kuri/blob/main/LICENSE"><img src="https://img.shields.io/github/license/justrach/kuri?style=flat-square" alt="License"></a>
   <img src="https://img.shields.io/badge/zig-0.16.0-f7a41d?style=flat-square" alt="Zig">
   <img src="https://img.shields.io/badge/node__modules-0_files-brightgreen?style=flat-square" alt="node_modules">
-  <img src="https://img.shields.io/badge/status-experimental-orange?style=flat-square" alt="status">
+  <img src="https://img.shields.io/badge/status-stable-brightgreen?style=flat-square" alt="status">
 </p>
 
 ## Install
@@ -20,7 +20,7 @@ curl -fsSL https://raw.githubusercontent.com/justrach/kuri/main/install.sh | sh
 
 macOS arm64/x86_64 and Linux x86_64/arm64. Single binary, no runtime deps.
 
-Direct downloads: [macOS arm64](https://github.com/justrach/kuri/releases/download/v0.4.0/kuri-v0.4.0-aarch64-macos.tar.gz) · [macOS x86_64](https://github.com/justrach/kuri/releases/download/v0.4.0/kuri-v0.4.0-x86_64-macos.tar.gz) · [Linux x86_64](https://github.com/justrach/kuri/releases/download/v0.4.0/kuri-v0.4.0-x86_64-linux.tar.gz) · [Linux arm64](https://github.com/justrach/kuri/releases/download/v0.4.0/kuri-v0.4.0-aarch64-linux.tar.gz)
+Direct downloads: [macOS arm64](https://github.com/justrach/kuri/releases/download/v0.4.3/kuri-v0.4.3-aarch64-macos.tar.gz) · [macOS x86_64](https://github.com/justrach/kuri/releases/download/v0.4.3/kuri-v0.4.3-x86_64-macos.tar.gz) · [Linux x86_64](https://github.com/justrach/kuri/releases/download/v0.4.3/kuri-v0.4.3-x86_64-linux.tar.gz) · [Linux arm64](https://github.com/justrach/kuri/releases/download/v0.4.3/kuri-v0.4.3-aarch64-linux.tar.gz)
 
 ---
 
@@ -89,9 +89,9 @@ Measured on Apple M4 Pro, macOS 26.4.1. Current binaries were built with `-Dopti
 
 ### RSS stayed flat across the Zig 0.16 migration
 
-Measured against the current `v0.4.0` `ReleaseFast` build with `/usr/bin/time -l`.
+Measured against the current `v0.4.3` `ReleaseFast` build with `/usr/bin/time -l`.
 
-| Command | `v0.4.0` mean max RSS |
+| Command | `v0.4.3` mean max RSS |
 |---|---:|
 | `kuri-fetch --version` | ~2.45 MiB |
 | `kuri-browse --version` | ~2.45 MiB |
@@ -747,20 +747,37 @@ kuri-agent shot                      # saves ~/.kuri/screenshots/<ts>.png
 |---------|-------------|
 | `tabs [--port N]` | List Chrome tabs |
 | `use <ws_url>` | Attach to a tab (saves session) |
+| `open [url] [--port N]` | Open a new tab (optionally navigating to url) |
 | `status` | Show current session |
 | `go <url>` | Navigate to URL |
 | `snap [--interactive] [--json] [--text] [--depth N]` | A11y snapshot, saves `eN` refs |
-| `click <ref>` | Click element by ref |
-| `type <ref> <text>` | Type into element |
+| `click <ref>` | Click element by ref (CDP mouse events, React-compatible) |
+| `type <ref> <text>` | Type into element (per-character key events, React-compatible) |
 | `fill <ref> <text>` | Fill input value |
 | `select <ref> <value>` | Select dropdown option |
+| `hover <ref>` | Hover over element |
+| `focus <ref>` | Focus element |
+| `scroll` | Scroll the page |
+| `viewport [width height]` | Get or set viewport dimensions |
 | `eval <js>` | Evaluate JavaScript |
 | `text [selector]` | Get page text |
 | `shot [--out file.png]` | Screenshot |
+| `back` | Navigate back |
+| `forward` | Navigate forward |
+| `reload` | Reload current page |
 | `cookies` | List cookies with security flags |
 | `headers` | Check security response headers |
 | `audit` | Full security audit |
-
+| `storage [local\|session\|all]` | Dump localStorage / sessionStorage |
+| `jwt` | Extract and decode JWTs from cookies and storage |
+| `fetch <method> <url> [--data <json>]` | Authenticated fetch using page cookies |
+| `probe <url-template> <start> <end>` | IDOR probe: iterate numeric IDs in URL |
+| `grab <ref>` | Click ref, intercept `window.open`, follow redirect in-tab |
+| `wait-for-tab [--port N]` | Poll for a new tab, auto-switch session |
+| `stealth` | Apply anti-detection patches |
+| `set-header <name> <value>` | Add a custom header to all requests |
+| `show-headers` | Show stored extra headers |
+| `clear-headers` | Remove all extra headers |
 ---
 
 ## 📱 kuri-mobile (iOS + Android)
