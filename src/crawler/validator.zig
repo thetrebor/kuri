@@ -22,20 +22,28 @@ pub fn validateUrl(url: []const u8) ValidationError!void {
     var normalized_host_buf: [256]u8 = undefined;
     const host = normalizeHost(raw_host, &normalized_host_buf) orelse return ValidationError.InvalidUrl;
 
-    if (isLocalhostAlias(host) or std.mem.eql(u8, host, "127.0.0.1") or std.mem.eql(u8, host, "::1")) {
-        return ValidationError.LocalhostBlocked;
-    }
+    // KURI_ALLOW_PRIVATE=1 bypasses localhost and private-IP checks for local dev/testing.
+    const allow_private = if (compat.getenv("KURI_ALLOW_PRIVATE")) |val|
+        std.mem.eql(u8, val, "1") or std.mem.eql(u8, val, "true")
+    else
+        false;
 
-    if (isMetadataIpv4(host) or std.mem.eql(u8, host, "100.100.100.200")) {
-        return ValidationError.MetadataIpBlocked;
-    }
+    if (!allow_private) {
+        if (isLocalhostAlias(host) or std.mem.eql(u8, host, "127.0.0.1") or std.mem.eql(u8, host, "::1")) {
+            return ValidationError.LocalhostBlocked;
+        }
 
-    if (isPrivateIpv4(host)) {
-        return ValidationError.PrivateIp;
-    }
+        if (isMetadataIpv4(host) or std.mem.eql(u8, host, "100.100.100.200")) {
+            return ValidationError.MetadataIpBlocked;
+        }
 
-    if (isPrivateIpv6(host)) {
-        return ValidationError.PrivateIp;
+        if (isPrivateIpv4(host)) {
+            return ValidationError.PrivateIp;
+        }
+
+        if (isPrivateIpv6(host)) {
+            return ValidationError.PrivateIp;
+        }
     }
 }
 
