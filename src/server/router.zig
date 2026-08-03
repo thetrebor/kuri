@@ -1499,10 +1499,6 @@ fn handleEvaluate(request: *std.http.Server.Request, arena: std.mem.Allocator, b
         resp.sendError(request, 400, "Missing expression parameter");
         return;
     };
-    const expr = jsonEscapeAlloc(arena, expr_decoded) orelse {
-        resp.sendError(request, 500, "Failed to encode expression");
-        return;
-    };
 
     const client = bridge.getCdpClient(tab_id) orelse {
         resp.sendError(request, 404, "Tab not found");
@@ -1511,7 +1507,7 @@ fn handleEvaluate(request: *std.http.Server.Request, arena: std.mem.Allocator, b
     rememberCurrentTab(request, bridge, tab_id);
     _ = bridge.touchTab(tab_id);
 
-    const escaped_expr = jsonEscapeAlloc(arena, expr) orelse {
+    const escaped_expr = jsonEscapeAlloc(arena, expr_decoded) orelse {
         resp.sendError(request, 500, "Internal Server Error");
         return;
     };
@@ -6736,8 +6732,7 @@ fn handleEvalHandle(request: *std.http.Server.Request, arena: std.mem.Allocator,
     const tab_id = requireEffectiveTabId(arena, request, bridge) orelse return;
     const expr_decoded = getDecodedQueryParamAlloc(arena, target, "expression") orelse { resp.sendError(request, 400, "Missing expression parameter"); return; };
     const client = bridge.getCdpClient(tab_id) orelse { resp.sendError(request, 404, "Tab not found"); return; };
-    const expr = jsonEscapeAlloc(arena, expr_decoded) orelse { resp.sendError(request, 500, "Internal Server Error"); return; };
-    const escaped_expr = jsonEscapeAlloc(arena, expr) orelse { resp.sendError(request, 500, "Internal Server Error"); return; };
+    const escaped_expr = jsonEscapeAlloc(arena, expr_decoded) orelse { resp.sendError(request, 500, "Internal Server Error"); return; };
     const params = std.fmt.allocPrint(arena, "{{\"expression\":\"{s}\",\"returnByValue\":false}}", .{escaped_expr}) catch { resp.sendError(request, 500, "Internal Server Error"); return; };
     const response = client.send(arena, protocol.Methods.runtime_evaluate, params) catch { resp.sendError(request, 502, "CDP command failed"); return; };
     resp.sendJson(request, response);
