@@ -147,7 +147,33 @@ pub const Launcher = struct {
         // shutdown our SIGKILL on the child PID can then cascade through
         // shared helper processes.
         const home = compat.getenv("HOME") orelse "/tmp";
-        const profile_subdir: []const u8 = if (self.headless) ".kuri/chrome-profile-headless" else ".kuri/chrome-profile";
+        // ══════════════════════════════════════════════════════════════════
+        // PER-INSTANCE PROFILE DIR — the thing that lets two kuris coexist.
+        // ══════════════════════════════════════════════════════════════════
+        //
+        // ⚠️ THIS WAS HARDCODED, AND THAT MADE A SECOND INSTANCE IMPOSSIBLE.
+        // Chrome refuses to share one --user-data-dir: the second process loses
+        // the race for the SingletonLock and the second kuri dies in
+        // `waitForDebuggerUrl` with `ConnectionRefused` after retrying three CDP
+        // ports. Reproduced: instance A on :9471 came up fine; instance B on
+        // :9472, same HOME, never bound its port at all.
+        //
+        // ⚠️ THE FAILURE LOOKS LIKE A CDP PROBLEM AND IS NOT. The retry loop
+        // picks fresh CDP ports and still fails, because the conflict is the
+        // PROFILE DIRECTORY, not the port. That cost real diagnosis time.
+        //
+        // Set KURI_PROFILE_SUFFIX to give an instance its own Chrome profile:
+        //
+        //     PORT=9472 KURI_PROFILE_SUFFIX=-9472 kuri
+        //
+        // Unset (the default) keeps today's exact paths, so existing installs
+        // and the launchd service are unaffected. Used by the concurrent-sweep
+        // case, where each sweep owns its own browser instead of restarting a
+        // shared one out from under every other consumer (FI-39).
+        const base_subdir: []const u8 = if (self.headless) ".kuri/chrome-profile-headless" else ".kuri/chrome-profile";
+        const suffix = compat.getenv("KURI_PROFILE_SUFFIX") orelse "";
+        const profile_subdir = try std.fmt.allocPrint(self.allocator, "{s}{s}", .{ base_subdir, suffix });
+        defer self.allocator.free(profile_subdir);
         const profile_dir = try std.fmt.allocPrint(self.allocator, "{s}/{s}", .{ home, profile_subdir });
         defer self.allocator.free(profile_dir);
 
