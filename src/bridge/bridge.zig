@@ -349,7 +349,115 @@ pub const Bridge = struct {
 
     /// Get or create a CDP client for a tab.
     /// If the cached client is dead (target detached by Chrome), refreshes
-    /// the tab's webSocketDebuggerUrl from /json/list and recreates it.
+    /// the tab's webSocketDebuggerUrl from /json/list and recreates it.    /// Create a new page target using Chrome's BROWSER-LEVEL HTTP endpoint.
+    ///
+    /// ══════════════════════════════════════════════════════════════════════
+    /// WHY THIS EXISTS: /tab/new used to need an existing tab to create from.
+    /// ══════════════════════════════════════════════════════════════════════
+    ///
+    /// The old path was: list tabs -> take tabs[0] -> getCdpClient(tabs[0].id)
+    /// -> send Target.createTarget through THAT tab's WebSocket. When the tab
+    /// list is empty there is no client to send through, so /tab/new returned
+    /// 500 "No active tabs to create from" — PERMANENTLY. A client that closed
+    /// the last tab could never open another one, and the only recovery was a
+    /// full service restart. Reproduced deterministically.
+    ///
+    /// ⚠️ The wedge is invisible to a health check: /health and /tabs keep
+    /// answering 200 in about a millisecond, because both are served from
+    /// in-process state. Every CDP-dependent endpoint (/tab/new, /page/info,
+    /// /snapshot) fails or hangs at the same time. So "the service is up" said
+    /// nothing about whether it could work.
+    ///
+    /// Chrome exposes `PUT /json/new?url=...` on its HTTP debug port, which
+    /// creates a page target and needs no CDP session at all — verified to
+    /// return 200 and to take the browser from 0 targets to 5. That is the
+    /// bootstrap, and it is what this function calls.
+    ///
+    /// ⚠️ `PUT`, NOT `GET`. Chrome rejects GET /json/new with 405 Method Not
+    /// Allowed. Measured, not assumed.
+    ///
+    /// Returns the new target id (allocated in `allocator`), or null.
+    pub fn createPageTargetHttp(self: *Bridge, allocator: std.mem.Allocator, url: []const u8) ?[]const u8 {
+        if (@import("builtin").os.tag == .windows) return null;
+
+        self.mu.lockShared();
+        const host = self.cdp_host;
+        const port = self.cdp_port;
+        self.mu.unlockShared();
+
+        const io = std.Io.Threaded.global_single_threaded.io();
+        const address = net.IpAddress.parseIp4(host, port) catch return null;
+        const stream = net.IpAddress.connect(&address, io, .{ .mode = .stream }) catch return null;
+        defer stream.close(io);
+
+        // Bounded: a wedged Chrome must not hang this request thread forever.
+        const timeout = std.posix.timeval{ .sec = 5, .usec = 0 };
+        std.posix.setsockopt(stream.socket.handle, std.posix.SOL.SOCKET, std.posix.SO.RCVTIMEO, std.mem.asBytes(&timeout)) catch {};
+
+        // ⚠️ THE URL MUST BE RE-ENCODED HERE, AND THAT IS NOT COSMETIC.
+        //
+        // `url` comes from `getDecodedQueryParamAlloc`, so it has already been
+        // percent-DECODED. Inserting it raw into another query position means a
+        // URL containing `&` or `#` (e.g. `https://x/a?p=1&q=2`) terminates the
+        // `url=` parameter early and Chrome navigates to a truncated target —
+        // silently, with a 200. Encoding it here is what keeps the nested query
+        // position intact.
+        //
+        // A percent-encode that is safe for a query VALUE: everything except
+        // unreserved characters is escaped, so `:`/`/`/`?`/`&`/`#` survive as
+        // their encoded forms and Chrome decodes them back to the intended URL.
+        var encoded: std.ArrayListUnmanaged(u8) = .empty;
+        defer encoded.deinit(self.allocator);
+        for (url) |ch| {
+            const unreserved = std.ascii.isAlphanumeric(ch) or ch == '-' or ch == '_' or ch == '.' or ch == '~';
+            if (unreserved) {
+                encoded.append(self.allocator, ch) catch return null;
+            } else {
+                const hex = std.fmt.allocPrint(self.allocator, "%{X:0>2}", .{ch}) catch return null;
+                defer self.allocator.free(hex);
+                encoded.appendSlice(self.allocator, hex) catch return null;
+            }
+        }
+
+        const http_req = std.fmt.allocPrint(self.allocator, "PUT /json/new?url={s} HTTP/1.1\r\nHost: {s}:{d}\r\nContent-Length: 0\r\nConnection: close\r\n\r\n", .{ encoded.items, host, port }) catch return null;
+        defer self.allocator.free(http_req);
+
+        var written: usize = 0;
+        while (written < http_req.len) {
+            const rc = std.c.write(stream.socket.handle, http_req.ptr + written, http_req.len - written);
+            if (rc <= 0) return null;
+            written += @intCast(rc);
+        }
+
+        var response_buf: [65536]u8 = undefined;
+        var total: usize = 0;
+        while (total < response_buf.len) {
+            const n = std.posix.read(stream.socket.handle, response_buf[total..]) catch break;
+            if (n == 0) break;
+            total += n;
+            if (std.mem.indexOf(u8, response_buf[0..total], "\r\n\r\n")) |hdr_end| {
+                if (findContentLength(response_buf[0..hdr_end])) |content_len| {
+                    if (total >= hdr_end + 4 + content_len) break;
+                }
+            }
+        }
+        if (total == 0) return null;
+
+        const raw_response = response_buf[0..total];
+        const body_start = (std.mem.indexOf(u8, raw_response, "\r\n\r\n") orelse return null) + 4;
+        const body = raw_response[body_start..total];
+        if (body.len == 0) return null;
+
+        // A non-2xx reply means Chrome refused; report failure rather than
+        // parsing an error body for a target id that will not be there.
+        const status_line_end = std.mem.indexOf(u8, raw_response, "\r\n") orelse return null;
+        const status_line = raw_response[0..status_line_end];
+        if (std.mem.indexOf(u8, status_line, " 2") == null) return null;
+
+        const id_val = extractSimpleJsonString(body, 0, "\"id\"") orelse return null;
+        return allocator.dupe(u8, id_val) catch null;
+    }
+
     pub fn getCdpClient(self: *Bridge, tab_id: []const u8) ?*CdpClient {
         // Phase 1: fast path + dead-client eviction under the lock.
         {
@@ -867,6 +975,26 @@ test "refreshTabWsUrl updates stale ws_url from /json/list" {
 
 /// Extract a simple JSON string value for a given field key, starting at `start`.
 /// Returns the content between the quotes after the field's colon.
+/// Read a `Content-Length:` header so the response reader knows when the body is
+/// complete instead of relying on EOF. Chrome sends `Content-Length:1773` with no
+/// space after the colon, so both spellings are matched.
+///
+/// A local copy of the helper in `src/server/router.zig`: that one is private to
+/// its module, and bridge.zig should not import the HTTP router just for a header
+/// parse. If a third caller appears, hoist this into `src/util/`.
+fn findContentLength(headers: []const u8) ?usize {
+    const patterns = [_][]const u8{ "Content-Length:", "Content-Length: ", "content-length:", "content-length: " };
+    for (patterns) |pat| {
+        if (std.mem.indexOf(u8, headers, pat)) |cl_pos| {
+            const val_start = cl_pos + pat.len;
+            const val_end = std.mem.indexOfScalarPos(u8, headers, val_start, '\r') orelse continue;
+            const val_str = std.mem.trim(u8, headers[val_start..val_end], " ");
+            return std.fmt.parseInt(usize, val_str, 10) catch continue;
+        }
+    }
+    return null;
+}
+
 fn extractSimpleJsonString(json: []const u8, start: usize, field: []const u8) ?[]const u8 {
     const field_pos = std.mem.indexOfPos(u8, json, start, field) orelse return null;
     if (field_pos - start > 1000) return null;

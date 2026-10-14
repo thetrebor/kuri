@@ -5171,27 +5171,63 @@ fn handleTabNew(request: *std.http.Server.Request, arena: std.mem.Allocator, bri
         return;
     };
 
-    // Use any existing client to create a new target
-    const tabs = bridge.listTabs(arena) catch {
-        resp.sendError(request, 500, "Failed to list tabs");
-        return;
-    };
-    if (tabs.len == 0) {
-        resp.sendError(request, 500, "No active tabs to create from");
-        return;
+    // Create the target.
+    //
+    // ══════════════════════════════════════════════════════════════════════
+    // TWO PATHS, AND THE SECOND IS THE ONE THAT MATTERS.
+    // ══════════════════════════════════════════════════════════════════════
+    //
+    // ⚠️ THIS USED TO HAVE ONLY THE FIRST, WHICH MADE ZERO TABS PERMANENTLY
+    // UNRECOVERABLE. The old code was:
+    //
+    //     const tabs = bridge.listTabs(arena);
+    //     if (tabs.len == 0) return 500 "No active tabs to create from";
+    //     const client = bridge.getCdpClient(tabs[0].id);
+    //     client.send(Target.createTarget, ...);
+    //
+    // A CDP client is per-TARGET, so with no targets there is nothing to send
+    // through. A client that closed its last tab could never open another one —
+    // every later /tab/new returned the same 500, for every session, until the
+    // service was restarted. Reproduced deterministically: close all tabs, then
+    // /tab/new 500s twice in a row and forever after.
+    //
+    // ⚠️ THE SERVICE LOOKED HEALTHY THROUGHOUT. /health and /tabs kept returning
+    // 200 in about a millisecond, because both are served from in-process state;
+    // only the CDP-dependent endpoints failed. So a green health check was fully
+    // compatible with a browser that could not do anything.
+    //
+    // The fix is to fall back to Chrome's browser-level HTTP endpoint, which
+    // needs no CDP session and works from zero targets (`bridge.createPageTargetHttp`).
+    //
+    // The CDP path is KEPT for the non-empty case rather than replaced: it is the
+    // path that has been exercised in production, and the HTTP endpoint is the
+    // bootstrap that the empty case needs. Using CDP when a tab exists also keeps
+    // the existing `activate`/`wait` hydration behaviour unchanged.
+    var new_tab_id: []const u8 = "unknown";
+    const tabs = bridge.listTabs(arena) catch &[_]TabEntry{};
+    if (tabs.len > 0) {
+        if (bridge.getCdpClient(tabs[0].id)) |client| {
+            if (client.send(arena, protocol.Methods.target_create_target, params)) |response| {
+                new_tab_id = extractSimpleJsonString(response, 0, "\"targetId\"") orelse "unknown";
+            } else |_| {
+                // A CDP send can fail while a target still exists (a wedged
+                // session, a dead client). Fall through to the HTTP bootstrap
+                // rather than 502ing, since the bootstrap is strictly more
+                // likely to work.
+                std.log.warn("tab/new: Target.createTarget failed over CDP; falling back to PUT /json/new", .{});
+            }
+        }
     }
-    const client = bridge.getCdpClient(tabs[0].id) orelse {
-        resp.sendError(request, 500, "No active CDP client");
-        return;
-    };
 
-    const response = client.send(arena, protocol.Methods.target_create_target, params) catch {
-        resp.sendError(request, 502, "Target.createTarget failed");
-        return;
-    };
-
-    // Extract targetId from response
-    const new_tab_id = extractSimpleJsonString(response, 0, "\"targetId\"") orelse "unknown";
+    if (std.mem.eql(u8, new_tab_id, "unknown")) {
+        // The bootstrap. Works whether the tab list is empty or every CDP client
+        // is wedged — which covers both failure modes reported against this route.
+        const from_chrome = bridge.createPageTargetHttp(arena, url) orelse {
+            resp.sendError(request, 502, "Could not create a new page target: Target.createTarget failed and PUT /json/new did not return a target id");
+            return;
+        };
+        new_tab_id = from_chrome;
+    }
     if (activate and !std.mem.eql(u8, new_tab_id, "unknown")) {
         _ = activateTarget(arena, bridge, new_tab_id);
     }
