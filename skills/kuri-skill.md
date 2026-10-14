@@ -60,7 +60,7 @@ Screenshots currently use the existing Kuri/CDP renderer as a fallback, so start
 ```bash
 # terminal 1, repo root
 zig build
-./zig-out/bin/kuri
+KURI_ALLOW_PRIVATE=1 ./zig-out/bin/kuri
 
 # terminal 2
 cd kuri-browser

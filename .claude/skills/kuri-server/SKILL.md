@@ -13,16 +13,16 @@ kuri is a CDP automation server. It launches Chrome, connects via WebSocket, and
 
 ```bash
 # Default — launches headless Chrome, listens on :8080
-./zig-out/bin/kuri
+KURI_ALLOW_PRIVATE=1 ./zig-out/bin/kuri
 
 # Visible Chrome (for debugging)
-HEADLESS=false ./zig-out/bin/kuri
+HEADLESS=false KURI_ALLOW_PRIVATE=1 ./zig-out/bin/kuri
 
 # With residential proxy (for bot-protected sites)
-KURI_PROXY=socks5://user:pass@proxy:1080 ./zig-out/bin/kuri
+KURI_ALLOW_PRIVATE=1 KURI_PROXY=socks5://user:pass@proxy:1080 ./zig-out/bin/kuri
 
 # Connect to existing Chrome
-CDP_URL=ws://127.0.0.1:9222/devtools/browser/... ./zig-out/bin/kuri
+KURI_ALLOW_PRIVATE=1 CDP_URL=ws://127.0.0.1:9222/devtools/browser/... ./zig-out/bin/kuri
 ```
 
 ## Core workflow

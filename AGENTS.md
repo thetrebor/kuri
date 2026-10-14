@@ -86,7 +86,7 @@ When running live validation, start Kuri from a known state and record whether i
 ```sh
 cd ..
 zig build
-./zig-out/bin/kuri
+KURI_ALLOW_PRIVATE=1 ./zig-out/bin/kuri
 
 cd kuri-browser
 ./zig-out/bin/kuri-browser bench --kuri-base http://127.0.0.1:8080

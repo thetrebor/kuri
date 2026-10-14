@@ -186,7 +186,7 @@ zig build              # build everything
 zig build test         # run 252+ tests
 
 # CDP mode — launches Chrome automatically
-./zig-out/bin/kuri
+KURI_ALLOW_PRIVATE=1 ./zig-out/bin/kuri
 
 # Standalone mode — no Chrome needed
 ./zig-out/bin/kuri-fetch https://example.com
@@ -203,7 +203,7 @@ zig build test         # run 252+ tests
 
 ```bash
 # start the server; if CDP_URL is unset, kuri launches managed Chrome for you
-./zig-out/bin/kuri
+KURI_ALLOW_PRIVATE=1 ./zig-out/bin/kuri
 
 # discover tabs from that managed browser
 curl -s http://127.0.0.1:8080/discover
