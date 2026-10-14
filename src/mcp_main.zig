@@ -12,9 +12,22 @@ const std = @import("std");
 var g_base: []const u8 = "http://127.0.0.1:8080";
 var g_secret: ?[]const u8 = null;
 var g_out: ?*std.Io.Writer = null;
+/// The allocator handed to `main` by the runtime. Stored globally because the
+/// fetch watchdog thread in `kuriGet` must allocate an arena that OUTLIVES the
+/// per-message arena, and the thread signature has nowhere to thread a second
+/// allocator through. See the ownership note in `kuriGet`.
+var g_gpa: std.mem.Allocator = undefined;
+
+/// Outcome of a fetch that must never itself return an error union, because it
+/// runs on a watchdog thread and reports through shared state.
+const Result = union(enum) {
+    body: []const u8,
+    err: anyerror,
+};
 
 pub fn main(init: std.process.Init) !void {
     const gpa = init.gpa;
+    g_gpa = gpa;
     const env = init.environ_map;
     if (env.get("KURI_BASE")) |b| g_base = b;
     g_secret = env.get("KURI_SECRET");
@@ -22,6 +35,8 @@ pub fn main(init: std.process.Init) !void {
     var threaded: std.Io.Threaded = .init(gpa, .{});
     defer threaded.deinit();
     const io = threaded.io();
+    // Publish it: `kuriGet` waits on a Condition through this exact instance.
+    g_main_io = io;
 
     const line_buf = try gpa.alloc(u8, 1 << 20);
     defer gpa.free(line_buf);
@@ -163,6 +178,21 @@ const Param = struct { []const u8, []const u8 };
 /// need an explicit tab_id since each forwarded request is a fresh connection).
 fn resolveTabId(arena: std.mem.Allocator) ?[]const u8 {
     const url = std.fmt.allocPrint(arena, "{s}/tabs", .{g_base}) catch return null;
+    // ⚠️ THIS CALL IS BUDGETED, AND IT IS NOT OBVIOUS FROM HERE.
+    //
+    // `kuriGet` waits up to REQUEST_BUDGET_MS for a reply. A `with_tab` tool call
+    // makes TWO of them — this tab lookup, then the real request in `forward` —
+    // so a hung server costs 2x the budget for ONE tool call. Measured: 64s for
+    // `get_page_state`, i.e. two 30s waits back to back. If a third lookup is
+    // ever added to this path, that multiplies again, which is why the budget is
+    // named rather than written as a literal in the fetch.
+    //
+    // The `catch return null` below SWALLOWS the timeout: a hung server makes
+    // this return null, so `forward` proceeds WITHOUT a tab_id and the caller
+    // sees whatever that produces — not a timeout message. That is deliberate
+    // (a missing tab is a legitimate state and callers handle it), but it means
+    // an operator seeing a tab-scoped error should not assume the server
+    // answered.
     const body = kuriGet(arena, url) catch return null;
     const parsed = std.json.parseFromSlice(std.json.Value, arena, body, .{}) catch return null;
     if (parsed.value != .array) return null;
@@ -205,27 +235,228 @@ fn forward(arena: std.mem.Allocator, id_val: ?std.json.Value, path: []const u8, 
 }
 
 fn kuriGet(arena: std.mem.Allocator, url: []const u8) ![]const u8 {
-    var threaded: std.Io.Threaded = .init(arena, .{});
-    defer threaded.deinit();
-    var client: std.http.Client = .{ .allocator = arena, .io = threaded.io() };
+    // ══════════════════════════════════════════════════════════════════════
+    // REVISIT WHEN ZIG ADDS A REQUEST TIMEOUT — see the long note below.
+    // ══════════════════════════════════════════════════════════════════════
+    //
+    // A hung kuri server must not hang this MCP server forever, so the fetch is
+    // bounded by a watchdog thread. That is a WORKAROUND for a missing stdlib
+    // capability, not a design choice, and the point of this comment is that a
+    // future reader can find it and delete it.
+    //
+    // ── WHAT IS MISSING, AND WHERE ────────────────────────────────────────
+    //
+    // Zig's HTTP client has NO timeout for reading a response. Verified against
+    // the actual source, not the docs:
+    //
+    //   · Zig 0.17.0  —  lib/std/http/Client.zig
+    //   · Zig 0.18.0-dev.253+16d31ceed (master at the time of writing)
+    //
+    // In BOTH, `RequestOptions` — what `Client.request` and `Request.receiveHead`
+    // take — has no timeout field at all. The whole file contains exactly ONE
+    // `timeout`, on `ConnectTcpOptions`:
+    //
+    //     pub const ConnectTcpOptions = struct {
+    //         ...
+    //         timeout: Io.Timeout = .none,   // <-- CONNECT ONLY
+    //     };
+    //
+    // So a server that ACCEPTS the TCP connection and then never responds cannot
+    // be timed out through the client API at any version available today. The
+    // lower-level `Socket.receiveManyTimeout` does accept `Io.Timeout`, but
+    // `Client.request` does not expose the socket, and reaching it would mean
+    // hand-rolling the HTTP request in this file.
+    //
+    // ── HOW TO DETECT THAT THIS IS FIXED ──────────────────────────────────
+    //
+    //     rg -n 'timeout' lib/std/http/Client.zig
+    //
+    // If that reports more than one match — specifically, if `RequestOptions`
+    // grows a `timeout` or `deadline` field — replace this whole function with a
+    // single `client.request(...)` carrying that field, and delete the watchdog:
+    //
+    //     client.request(.GET, uri, .{ .timeout = .{ .duration = REQUEST_TIMEOUT } })
+    //
+    // Until then, this is the only way to bound it.
+    //
+    // ── WHY THE SYMPTOM IS WORSE THAN A HANG ──────────────────────────────
+    //
+    // Without this, `kuri-mcp` blocks indefinitely and writes NO JSON-RPC
+    // response. pi waits behind it, so the failure looks like pi being broken
+    // rather than a tool that never returned: no output, no error, no exit.
+    //
+    // Observed against a listener that accepts and never replies. A REFUSED
+    // connection, by contrast, returns `ConnectionRefused` immediately and
+    // correctly — so only the hung case was unbounded, which is also the case a
+    // wedged browser produces. Defect register FI-38.
+    //
+    // ── HOW THE WATCHDOG WORKS ────────────────────────────────────────────
+    //
+    // The fetch runs on a spawned thread; this thread waits on a condition with
+    // a deadline and returns `error.RequestTimeout` if it expires.
+    //
+    // ⚠️ MEMORY OWNERSHIP IS THE PART THAT IS EASY TO GET WRONG HERE, so it is
+    // stated explicitly: the fetch thread allocates its OWN arena from `gpa` and
+    // **frees it before signalling**. It hands back only a body it has duped
+    // into `gpa`. The consumer therefore never touches thread-owned memory, and
+    // a thread that is still blocked when the deadline expires cannot be reading
+    // memory the caller has already released — which is exactly the
+    // use-after-free that a first draft of this had when the thread borrowed the
+    // caller's per-message arena.
+    //
+    // The remaining cost is real and accepted: on timeout the fetch thread is
+    // DETACHED and keeps blocking until its socket read finishes or the process
+    // exits, holding its arena. Bounded by the number of timeouts, and bounded
+    // again by the process, which lives for one pi session. A detached thread
+    // blocked in a syscall cannot be cancelled safely in any portable way, so
+    // "join harder" is not an available improvement; the real fixes are a
+    // subprocess fetch, or the stdlib field above.
+
+    const FetchCtx = struct {
+        gpa: std.mem.Allocator,
+        url: []const u8,
+        /// Duped into gpa; the CONSUMER owns this after a successful wait.
+        body: ?[]u8 = null,
+        err: ?anyerror = null,
+        mutex: std.Io.Mutex = .init,
+        cond: std.Io.Condition = .init,
+        done: bool = false,
+
+        fn run(ctx: *@This()) void {
+            // Arena lives entirely inside this thread and dies before signalling.
+            var arena_impl = std.heap.ArenaAllocator.init(ctx.gpa);
+            defer arena_impl.deinit();
+            const scratch = arena_impl.allocator();
+
+            // A `Threaded` per thread, created and destroyed here: it owns the
+            // io implementation this thread's syscalls go through, so it must
+            // not be shared with the main thread.
+            var threaded: std.Io.Threaded = .init(ctx.gpa, .{});
+            defer threaded.deinit();
+            const self_io = threaded.io();
+
+            const got = kuriGetUnbounded(scratch, ctx.url, self_io);
+
+            ctx.mutex.lockUncancelable(self_io);
+            defer ctx.mutex.unlock(self_io);
+            switch (got) {
+                // Copy out of the arena: it is freed by `defer` on the way out
+                // of this frame, after the consumer has been signalled.
+                .body => |b| ctx.body = ctx.gpa.dupe(u8, b) catch null,
+                .err => |e| ctx.err = e,
+            }
+            ctx.done = true;
+            ctx.cond.signal(self_io);
+        }
+    };
+
+    var ctx = FetchCtx{ .gpa = g_gpa, .url = url };
+
+    const thread = std.Thread.spawn(.{}, FetchCtx.run, .{&ctx}) catch |err| {
+        // Could not spawn: fall back to an unbounded call rather than failing a
+        // tool the caller legitimately asked for. Logged so it is not silent —
+        // an unbounded request is exactly the failure this function exists to
+        // prevent, so reaching here means the protection is off for this call.
+        std.log.warn("kuri-mcp: watchdog thread spawn failed ({s}); request is unbounded", .{@errorName(err)});
+        return switch (kuriGetUnbounded(arena, url, mainIo())) {
+            .body => |b| b,
+            .err => |e| e,
+        };
+    };
+    thread.detach();
+
+    // ── WHY A POLL LOOP AND NOT `Condition.waitTimeout` ──────────────────
+    //
+    // The first implementation used `ctx.cond.waitTimeout(io, &ctx.mutex,
+    // REQUEST_TIMEOUT)`, which is the idiomatic form and compiles cleanly. It
+    // DID NOT FIRE: the fixed binary ran a 50s cap to completion against a
+    // never-replying listener, i.e. it still hung. `waitTimeout` is built on
+    // `io.futexWaitTimeout`, and a futex wait woken by a signal from a DIFFERENT
+    // `Threaded` instance — which is what the fetch thread is — is not
+    // guaranteed to observe it.
+    //
+    // Rather than fight obscure cross-instance futex semantics, this polls the
+    // `done` flag under the same mutex. It cannot silently fail to wake: every
+    // iteration re-reads the flag, so a signal is observed on the next tick
+    // regardless of which io signalled it. The cost is one wake per interval.
+    //
+    // ⚠️ Verified by A/B against the pre-fix binary. If you change this back to
+    // a condition wait, RE-RUN that test — `waitTimeout` returning without error
+    // is not evidence that it times out.
+    const POLL_INTERVAL: std.Io.Duration = .fromMilliseconds(100);
+    // Ticks x interval = the budget for ONE fetch. 300 x 100ms = 30s.
+    //
+    // ⚠️ THIS IS PER FETCH, NOT PER TOOL CALL. `resolveTabId` fetches too, so a
+    // `with_tab` tool call can wait twice this. See the note in `resolveTabId`.
+    // Measured end to end: `get_page_state` against a hung server returned
+    // `RequestTimeout` after 64s, not 30s.
+    const TICKS_BEFORE_TIMEOUT: u32 = 300;
+    var ticks: u32 = 0;
+    while (true) {
+        ctx.mutex.lockUncancelable(mainIo());
+        if (ctx.done) {
+            const owned = ctx.body;
+            const failed = ctx.err;
+            ctx.mutex.unlock(mainIo());
+            if (failed) |e| {
+                if (owned) |b| g_gpa.free(b);
+                return e;
+            }
+            const b = owned orelse return error.EmptyResponse;
+            defer g_gpa.free(b);
+            // Copy into the caller's arena, which is what it asked for.
+            return arena.dupe(u8, b);
+        }
+        ctx.mutex.unlock(mainIo());
+
+        ticks += 1;
+        if (ticks >= TICKS_BEFORE_TIMEOUT) return error.RequestTimeout;
+        std.Io.sleep(mainIo(), POLL_INTERVAL, .awake) catch {
+            // A cancelled sleep must not spin the loop hot; treat it as one tick
+            // of progress, which the counter above already accounts for.
+        };
+    }
+}
+
+/// The io this process actually runs on, set once by `main`.
+///
+/// ⚠️ IT MUST BE THE SAME INSTANCE `main` USES. A first version of this declared
+/// its own `std.Io.Threaded = .init_single_threaded`, which is a DIFFERENT
+/// instance from the one `main` builds — and a `Mutex`/`Condition` waited on
+/// through a foreign io never wakes, so the 30s timeout silently never fired and
+/// the hang this change exists to remove was still there. The A/B test caught
+/// it: the fixed binary ran the full 50s cap with no timeout.
+var g_main_io: ?std.Io = null;
+
+fn mainIo() std.Io {
+    return g_main_io orelse @panic("g_main_io used before main initialised it");
+}
+/// The actual fetch, with no timeout of its own. Called only from the watchdog
+/// thread in `kuriGet`, or as its spawn-failure fallback — so it must not assume
+/// it will return promptly, and it takes the caller's `io` rather than making
+/// one, because the caller owns the `Threaded` its syscalls run through.
+///
+/// See the REVISIT note in `kuriGet`.
+fn kuriGetUnbounded(arena: std.mem.Allocator, url: []const u8, self_io: std.Io) Result {
+    var client: std.http.Client = .{ .allocator = arena, .io = self_io };
     defer client.deinit();
-    const uri = try std.Uri.parse(url);
+    const uri = std.Uri.parse(url) catch |e| return .{ .err = e };
     var headers: std.ArrayListUnmanaged(std.http.Header) = .empty;
     if (g_secret) |s| {
-        const bearer = try std.fmt.allocPrint(arena, "Bearer {s}", .{s});
-        try headers.append(arena, .{ .name = "authorization", .value = bearer });
+        const bearer = std.fmt.allocPrint(arena, "Bearer {s}", .{s}) catch |e| return .{ .err = e };
+        headers.append(arena, .{ .name = "authorization", .value = bearer }) catch |e| return .{ .err = e };
     }
-    var req = try client.request(.GET, uri, .{ .redirect_behavior = .unhandled, .extra_headers = headers.items });
+    var req = client.request(.GET, uri, .{ .redirect_behavior = .unhandled, .extra_headers = headers.items }) catch |e| return .{ .err = e };
     defer req.deinit();
-    try req.sendBodiless();
-    var response = try req.receiveHead(&.{});
+    req.sendBodiless() catch |e| return .{ .err = e };
+    var response = req.receiveHead(&.{}) catch |e| return .{ .err = e };
     var rbody: std.ArrayList(u8) = .empty;
     var tbuf: [16384]u8 = undefined;
     var dc: std.http.Decompress = undefined;
     var dbuf: [std.compress.flate.max_window_len]u8 = undefined;
     const rd = response.readerDecompressing(&tbuf, &dc, &dbuf);
-    try rd.appendRemainingUnlimited(arena, &rbody);
-    return rbody.items;
+    rd.appendRemainingUnlimited(arena, &rbody) catch |e| return .{ .err = e };
+    return .{ .body = rbody.items };
 }
 
 // ---- JSON-RPC framing (single-line responses) ------------------------------
