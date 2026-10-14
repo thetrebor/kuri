@@ -1396,80 +1396,14 @@ export default function kuriCommands(pi: ExtensionAPI): void {
     },
   });
 
-  pi.on("session_start", async (_event, ctx) => {
-    ctx.ui.setStatus("kuri", `🌰 Kuri ${PI_KURI_EXTENSION_VERSION}`);
-  });
-
-  pi.on("session_shutdown", async (_event, ctx) => {
-    ctx.ui.setStatus("kuri", undefined);
-  });
+  // [patched] Kuri footer registration disabled (user preference — footer space)
 
   pi.on("before_agent_start", async (event) => {
-    const baseUrl = kuriBaseUrl();
-    const sessionId = kuriSession();
     const kuriGuide = [
-      "",
-      `## Kuri Browser Automation (extension ${PI_KURI_EXTENSION_VERSION})`,
-      "",
-      "Kuri is a Zig-native browser automation server. Use it only when your role's tool list includes Kuri tools.",
-      "If your role does not include `kuri_screenshot_site`, do not attempt browser capture; record the target page, selector, or URL for the verifier/reviewer evidence lane.",
-      "",
-      "### 1. One-Shot Screenshot (PREFERRED)",
-      "",
-      'Verifier/reviewer lanes should use `kuri_screenshot_site` for visual evidence. This handles auth, navigation,',
-      "settle timing, and evidence PNG saving in a single call:",
-      "",
-      '  kuri_screenshot_site page="alert-log"            # from .sandcastle/site-manifest.yaml',
-      '  kuri_screenshot_site page="dashboard"',
-      "",
-      "For per-worktree simulators, an explicit URL is also valid:",
-      '  kuri_screenshot_site url="$(sandstate sim-url KEY)/indexWEB-ODAS.php#networking"',
-      "",
-      "Avoid output/token unless the operator explicitly asks for an override.",
-      "Never write evidence to Desktop; default output stays under .sandcastle evidence paths.",
-      "Read the tool response after capture. If it warns that the page looks like an unauthenticated login page, verify or retry before treating the screenshot as proof.",
-      "",
-      "When Kuri tools are available, use this first before manual browser tools or gui_* tools.",
-      "",
-      "### 2. Manual Browser Tools (fallback only if screenshot_site fails)",
-      "",
-      "Only use these when kuri_screenshot_site cannot reach the right page or state.",
-      "",
-      "**Tabs (auto-managed):**",
-      "  kuri_navigate auto-creates a tab when the session has none — no need to call kuri_new_tab first.",
-      "  kuri_tabs — list session tabs (id, url, title, current flag)",
-      "  kuri_new_tab(url?) — explicit new tab when you want a separate one",
-      "  kuri_close_tab — close a tab (defaults to current)",
-      "  kuri_back / kuri_forward / kuri_reload — history navigation",
-      "",
-      "**Check what's on the page:**",
-      "  kuri_page_info              — URL, title, ready state",
-      "  kuri_snap                   — interactive element refs (e0, e1...)",
-      "  kuri_screenshot             — capture screenshot to inspect",
-      "",
-      "**Act on elements (by ref from snap):**",
-      "  kuri_click(ref)             — click element",
-      "  kuri_type(ref, value)       — type text",
-      "  kuri_fill(ref, value)       — fill input value",
-      "  kuri_select(ref, value)     — select dropdown option",
-      "  kuri_scroll(direction?)     — scroll page",
-      "",
-      "**Get page content:**",
-      "  kuri_markdown               — page as markdown (auto-resolves tab)",
-      "  kuri_links                  — all links (auto-resolves tab)",
-      "  kuri_text                   — plain text (falls back to aria-labels on SPAs)",
-      "  kuri_evaluate(expression)   — run JavaScript",
-      "  kuri_errors                  — native CDP console errors (preferred)",
-      "  kuri_console_errors         — JS-interceptor console errors (fallback)",
-      "  kuri_headers                — security response headers",
-      "  kuri_har_start/stop/status  — HAR recording for API discovery",
-      "",
-      "**Tips:**",
-      "  - CDP-fragile endpoints auto-retry (up to 3 attempts) on transient failures.",
-      "  - Heavy JS pages: add settle_ms=5000 to kuri_screenshot for settle time.",
-      "  - Re-snap after navigation or DOM changes — refs are snapshot-local.",
-      "",
-    ].join("\n");
+      "Kuri browser automation is available when its tools are in this role's tool list.",
+      "Prefer kuri_screenshot_site for project visual evidence; otherwise navigate, snap, then act using the current snapshot refs.",
+      "After navigation or DOM changes, take a fresh snapshot. Use /kuri-help for the complete command reference.",
+    ].join(" ");
     return {
       systemPrompt: `${event.systemPrompt}\n${kuriGuide}`,
     };
@@ -1481,7 +1415,7 @@ export default function kuriCommands(pi: ExtensionAPI): void {
       const choice = await ctx.ui.select("Kuri commands", MENU_CHOICES);
       if (!choice) return;
       const prefix = choice.split(" - ")[0];
-      ctx.ui.setStatus("kuri", `selected: ${prefix}`);
+      ctx.ui.notify(`Kuri: ${prefix}`, "info");
     },
   });
 
