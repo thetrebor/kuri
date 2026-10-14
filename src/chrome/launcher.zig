@@ -184,6 +184,17 @@ pub const Launcher = struct {
         // ConnectionRefused even though there's no real conflict.
         cleanStaleSingletonLocks(profile_dir);
 
+        // ⚠️ REAP AN ORPHANED CHROME HOLDING THIS PROFILE — the backstop a signal
+        // handler structurally cannot provide.
+        //
+        // The group kill in `deinit` covers SIGTERM/SIGINT/SIGHUP, because a handler
+        // can run. It CANNOT cover SIGKILL to kuri, which launchd sends and which no
+        // handler can catch: that leaves a live Chrome holding the profile and the
+        // SingletonLock, and every later run then waits ~15s in waitForDebuggerUrl
+        // and dies with ConnectionRefused. So the cleanup goes where it is
+        // guaranteed to run: at startup, before we try to take the profile.
+        reapOrphanedChromeForProfile(profile_dir);
+
         const data_dir = try std.fmt.allocPrint(self.allocator, "--user-data-dir={s}", .{profile_dir});
         try argv_list.append(self.allocator, data_dir);
         if (self.headless) {
@@ -250,6 +261,24 @@ pub const Launcher = struct {
         if (pid < 0) return error.ForkFailed;
 
         if (pid == 0) {
+            // ⚠️ PUT THE CHILD IN ITS OWN PROCESS GROUP *BEFORE* EXEC, AND THIS
+            // IS THE FIX FOR FI-41 — not a tidiness change.
+            //
+            // kuri's SIGTERM handler calls `Launcher.deinit()`, which does
+            // `kill(child_pid, SIGKILL)`. Measured: the handler DOES run
+            // (`waitpid` reports WIFEXITED(143), not WIFSIGNALED(15)) and Chrome
+            // SURVIVES, reparented to PID 1 before `waitpid` executes — so
+            // `waitpid` returns ECHILD and the kill misses. Every
+            // `launchctl kickstart -k` therefore leaked a whole Chrome tree
+            // (9-10 processes), i.e. up to five browsers per sweep run.
+            //
+            // A group leader survives reparenting: the group id is the leader's
+            // pid and never changes, so `kill(-pgid, SIGKILL)` reaches the tree
+            // even after the parent is gone. setpgid must happen INSIDE the child
+            // (between fork and exec) so it cannot lose a race against the parent
+            // signalling too early.
+            _ = std.c.setpgid(0, 0);
+
             // Child: redirect stdout/stderr to /dev/null
             const devnull = std.c.open("/dev/null", .{ .ACCMODE = .WRONLY }, @as(c_uint, 0));
             if (devnull >= 0) {
@@ -324,14 +353,31 @@ pub const Launcher = struct {
         try self.launchChrome();
     }
 
-    /// Shut down the managed Chrome process.
+    /// Shut down the managed Chrome process tree.
+    ///
+    /// ⚠️ KILLS THE PROCESS GROUP, NOT JUST THE PID. See the setpgid note in
+    /// `launchChrome` and FI-41: at signal time the child may already be
+    /// reparented to PID 1, and a pid-directed kill then misses it while the
+    /// `waitpid` below returns ECHILD. The group id is the leader's pid and is
+    /// stable across reparenting, so `kill(-pid)` still reaches Chrome and its
+    /// helpers.
+    ///
+    /// Both are attempted: the group first (covers the reaped/reparented case),
+    /// then the bare pid (covers a child that failed to become a leader). Each is
+    /// best-effort — a failure here must not prevent the other from running.
     pub fn deinit(self: *Launcher) void {
         if (@import("builtin").os.tag == .windows) {
             self.child_pid = null;
             return;
         }
         if (self.child_pid) |pid| {
+            // Negative pid = "signal the whole process group".
+            _ = std.c.kill(-pid, std.c.SIG.KILL);
             _ = std.c.kill(pid, std.c.SIG.KILL);
+            // ⚠️ waitpid CAN fail here with ECHILD (already reparented and
+            // reaped by init), and that is expected, not an error. Ignoring the
+            // result is deliberate: kill() above is the part that matters, and
+            // the group kill does not depend on this succeeding.
             _ = std.c.waitpid(pid, null, 0);
             self.child_pid = null;
         }
@@ -412,6 +458,59 @@ fn cleanStaleSingletonLocks(profile_dir: []const u8) void {
     cleanOneStaleLock(profile_dir, "SingletonLock");
     cleanOneStaleLock(profile_dir, "SingletonCookie");
     cleanOneStaleLock(profile_dir, "SingletonSocket");
+}
+
+/// Find any live Chrome whose `--user-data-dir` is exactly `profile_dir` and kill
+/// its process group.
+///
+/// ⚠️ WHY A `ps` SCAN AND NOT THE SINGLETON LOCK. The lock file names a pid, but
+/// it is written by Chrome and may be stale, absent, or point at a pid that has
+/// been reused. The authoritative question is "which process is holding THIS
+/// profile directory", and `ps` answers it directly. The lock cleanup above still
+/// runs, since it is cheap and covers the case where the process is already gone.
+///
+/// ⚠️ SCOPED BY THE FULL PROFILE PATH. `--user-data-dir=<profile_dir>` is matched as
+/// a complete argument, so a concurrent kuri started with a different
+/// `KURI_PROFILE_SUFFIX` (a different path) is never selected. Matching on a prefix
+/// or on the bare word "chrome" would make one instance's startup kill another's
+/// browser — the cross-task destruction this whole change exists to prevent.
+///
+/// ⚠️ KILLS THE GROUP FIRST. A reparented Chrome is still reachable by its group
+/// id, which is why a group kill is the reliable form (see `deinit`). The bare pid
+/// is attempted as a fallback for a process that never became a group leader.
+fn reapOrphanedChromeForProfile(profile_dir: []const u8) void {
+    if (@import("builtin").os.tag == .windows) return;
+
+    const alloc = std.heap.page_allocator;
+
+    // Ask ps for pid+command pairs, then filter in Zig so the match is an exact
+    // argument comparison rather than a shell pattern that could over-match.
+    const needle = std.fmt.allocPrint(alloc, "--user-data-dir={s}", .{profile_dir}) catch return;
+    defer alloc.free(needle);
+
+    const out = compat.runCommand(alloc, &.{ "/bin/ps", "-Ao", "pid=,command=" }, 4 * 1024 * 1024) catch return;
+    defer alloc.free(out.stdout);
+
+    var it = std.mem.tokenizeScalar(u8, out.stdout, '\n');
+    while (it.next()) |line_raw| {
+        const line = std.mem.trim(u8, line_raw, " \t\r");
+        if (line.len == 0) continue;
+        const sp = std.mem.indexOfScalar(u8, line, ' ') orelse continue;
+        const pid_str = std.mem.trim(u8, line[0..sp], " \t");
+        const cmd = std.mem.trim(u8, line[sp..], " \t");
+        const pid = std.fmt.parseInt(std.c.pid_t, pid_str, 10) catch continue;
+        if (pid <= 1) continue;
+        // Own pid must never be selected; a self-kill here would be a silent
+        // startup crash with no message.
+        if (pid == std.c.getpid()) continue;
+        // Exact-argument containment: the needle is the full flag=path pair, so a
+        // concurrent instance with a different profile path is never matched.
+        if (std.mem.indexOf(u8, cmd, needle) == null) continue;
+
+        std.log.warn("reaping orphaned Chrome pid {d} holding {s}", .{ pid, profile_dir });
+        _ = std.c.kill(-pid, std.c.SIG.KILL);
+        _ = std.c.kill(pid, std.c.SIG.KILL);
+    }
 }
 
 fn cleanOneStaleLock(profile_dir: []const u8, name: []const u8) void {

@@ -16,8 +16,25 @@ const launcher = @import("chrome/launcher.zig");
 var launcher_ptr: ?*launcher.Launcher = null;
 
 pub fn install(l: *launcher.Launcher) void {
+    // ⚠️ THIS ASSIGNMENT USED TO LIVE ONLY IN THE WINDOWS BRANCH BELOW, SO ON
+    // macOS AND LINUX THE HANDLER ALWAYS SAW `launcher_ptr == null` AND DID
+    // NOTHING. The handler was registered, fired, found no launcher, and exited —
+    // which is why SIGTERM killed kuri and left its whole Chrome tree running
+    // (measured: 10 processes, reparented to PID 1). Filed as FI-41.
+    //
+    // It read as a correct handler because the Windows path proved the pointer was
+    // meant to be set; the POSIX path merely forgot. Instrumenting the handler is
+    // what found it — it printed `launcher_ptr=NULL` while kuri was demonstrably
+    // serving requests, so the pointer had never been assigned on this platform.
+    //
+    // ⚠️ Every other part of this mechanism was already correct and verified
+    // separately: the handler runs (`waitpid` reported WIFEXITED(143), not
+    // WIFSIGNALED(15)), `setpgid` sticks (Chrome's pgid == its pid), and a manual
+    // `kill(-pgid, SIGKILL)` reaps the whole tree (10 → 0). A one-line omission made
+    // all of it unreachable, which is why reading the code did not find it.
+    launcher_ptr = l;
+
     if (@import("builtin").os.tag == .windows) {
-        launcher_ptr = l;
         return;
     }
 
