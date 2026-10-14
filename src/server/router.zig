@@ -74,6 +74,33 @@ fn handleConnection(gpa: std.mem.Allocator, bridge: *Bridge, cfg: Config, cdp_po
             return;
         }
 
+        // ⚠️ DEFUSE THE UNFRAMED-BODY ASSERT BEFORE ANY RESPONSE IS SENT.
+        //
+        // std.http.Server's respond() path ends in `discardBody`, which asserts
+        // when a request's body has no framing:
+        //
+        //     assert(request.head.transfer_encoding != .none
+        //            or request.head.content_length != null);
+        //
+        // A client that sends `POST /health HTTP/1.1` with neither header
+        // violates HTTP, but the failure mode here is not a 400 — the assert is
+        // `unreachable`, so it PANICS AND ABORTS THE WHOLE PROCESS, taking every
+        // other connection with it. Reproduced with a raw socket; this killed
+        // the production server repeatedly (FI-40).
+        //
+        // Forcing keep_alive off makes `discardBody` skip the body-discarding
+        // branch entirely: it takes the `else => r.state = .closing` path and
+        // returns false, the connection closes after the response, and the
+        // assert is never reached. Same remedy, same reason, as
+        // gateway_main.zig's `request.head.keep_alive = false`.
+        //
+        // The cost is one connection per request on this server — it no longer
+        // reuses connections for pipelined requests. That is the trade the
+        // gateway already made for exactly this crash, and kuri's clients
+        // (the pi extension, kuri-mcp, the sweep) issue independent requests, so
+        // the round-trip cost is a TCP handshake, not a behavioural change.
+        request.head.keep_alive = false;
+
         // Capture the route name (query stripped — never the navigated URL) and
         // method for telemetry, then time the dispatch. response.zig records the
         // status + body size into a thread-local that we read back below.
